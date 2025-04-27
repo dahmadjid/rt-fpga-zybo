@@ -1,0 +1,7 @@
+venv
+.bin
+work
+transcript
+__pycache__
+results.xml
+rt_fpga.runs

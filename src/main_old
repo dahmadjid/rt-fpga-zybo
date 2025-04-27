@@ -1,0 +1,198 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+-- use work.ray_tracer_pkg.all;
+
+entity main is
+    generic(
+        rtu_count: integer := 1
+    );
+    port (
+        clk: in std_logic;
+        sw: in std_logic_vector(3 downto 0);
+        btn: in std_logic_vector(3 downto 0);
+        led: out std_logic_vector(3 downto 0);
+        uart_tx: out std_logic;
+        -- uart_rx_data_out: out std_logic_vector(7 downto 0);
+        -- uart_rx_busy_out: out std_logic;
+        
+        uart_rx: in std_logic
+    );
+end main;
+
+architecture arch of main is
+    signal rst: std_logic := '0';
+    
+    -- UART --
+    signal uart_tx_busy: std_logic := '0';
+    signal uart_tx_data: std_logic_vector(7 downto 0) := (others => '0');
+    signal uart_tx_rdy: std_logic := '0';
+    signal uart_tx_sig: std_logic := '0';
+
+    signal uart_rx_busy: std_logic := '0';
+    signal uart_rx_data: std_logic_vector(7 downto 0) := (others => '0');
+    signal uart_rx_error: std_logic := '0';
+
+    -- RAM --
+    signal ram_data: std_logic_vector(6 * 64 - 1 downto 0) := (others => '0'); 
+    signal ram_q: std_logic_vector(6 * 64 - 1 downto 0) := (others => '0'); 
+    signal ram_wren: std_logic := '0';
+    signal ram_wren_v: std_logic_vector(0 downto 0) := (others =>'0');
+    signal ram_address: std_logic_vector(8 downto 0) := (others => '0');
+
+    
+    signal counter: unsigned(7 downto 0) := (others => '0');
+
+    component uart is
+    generic(
+        clk_freq  :  integer    := 50_000_000;  --frequency of system clock in hertz
+        baud_rate :  integer    := 19_200;      --data link baud rate in bits/second
+        os_rate   :  integer    := 16;          --oversampling rate to find center of receive bits (in samples per baud period)
+        d_width   :  integer    := 8;           --data bus width
+        parity    :  integer    := 1;           --0 for no parity, 1 for parity
+        parity_eo :  std_logic  := '0');        --'0' for even, '1' for odd parity
+    port(
+        clk      :  in   std_logic;                             --system clock
+        reset_n  :  in   std_logic;                             --ascynchronous reset
+        tx_ena   :  in   std_logic;                             --initiate transmission
+        tx_data  :  in   std_logic_vector(d_width-1 downto 0);  --data to transmit
+        rx       :  in   std_logic;                             --receive pin
+        rx_busy  :  out  std_logic;                             --data reception in progress
+        rx_error :  out  std_logic;                             --start, parity, or stop bit error detected
+        rx_data  :  out  std_logic_vector(d_width-1 downto 0);  --data received
+        tx_busy  :  out  std_logic;                             --transmission in progress
+        tx       :  out  std_logic
+    );                            --transmit pin
+    end component uart;
+
+    component bram is
+        port ( 
+            clka : in STD_LOGIC;
+            wea : in STD_LOGIC_VECTOR ( 0 to 0 );
+            addra : in STD_LOGIC_VECTOR ( 8 downto 0 );
+            dina : in STD_LOGIC_VECTOR ( 383 downto 0 );
+            douta : out STD_LOGIC_VECTOR ( 383 downto 0 )
+        );
+        end component; 
+begin
+    rst <= not btn(0);
+    led(0) <= uart_rx_busy;
+    led(1) <= uart_tx_busy;
+    led(3) <= rst;
+
+    uart_tx <= uart_tx_sig;
+    -- uart_rx_data_out <= uart_rx_data;
+    -- uart_rx_busy_out <= uart_rx_busy;
+    -- ram_gen: for i in 0 to 6 generate
+    --     ram_inst: component ram
+    --     port map(
+    --         address_a => ram_address,
+    --         clock => clk,
+    --         data_a => ram_data(i * 64 + 63 downto i * 64),
+    --         wren_a => ram_wren,
+    --         q_a => ram_q(i * 64 + 63 downto i * 64)
+    --     );
+    -- end generate;
+        
+    ram: bram
+    port map(
+        clka => clk,
+        wea => ram_wren_v,
+        addra => ram_address,
+        dina => ram_data,
+        douta => ram_q
+    );
+       
+    ram_wren_v(0) <= ram_wren;
+
+    ----- UART -----
+    uart_comp: component uart
+    generic map (
+        clk_freq  =>  125_000_000,  --frequency of system clock in Hertz
+        baud_rate =>  115200,      --data link baud rate in bits/second
+        os_rate   =>  16,          --oversampling rate to find center of receive bits (in samples per baud period)
+        d_width   =>  8,           --data bus width
+        parity    =>  0,           --0 for no parity, 1 for parity
+        parity_eo => '0'           --'0' for even, '1' for odd parity
+    )        
+    port map(
+        clk      => clk,
+        reset_n  => rst,
+        tx_ena   => uart_tx_rdy,
+        tx_data  => uart_tx_data,
+        tx_busy  => uart_tx_busy,
+        tx       => uart_tx_sig,
+        rx_error => uart_rx_error,
+        rx_data  => uart_rx_data,
+        rx       => uart_rx,
+        rx_busy  => uart_rx_busy
+    );
+
+    uart_tx_data <= ram_q(7 downto 0);
+    ram_data(7 downto 0) <= uart_rx_data;
+    ram_data(383 downto 8) <= (others => '0');
+
+    process(clk, rst)
+        variable state : integer := 0;
+    begin
+        if rst = '0' then
+            uart_tx_rdy <= '0';
+            ram_wren <= '0';
+            ram_address <= (others => '0'); 
+            state := 0;
+        elsif rising_edge(clk) then
+            if state = 0 then
+                uart_tx_rdy <= '1';
+                state := 1;
+            elsif state = 1 then
+                if uart_tx_rdy = '1' then
+                    uart_tx_rdy <= '0';
+                elsif uart_tx_busy = '0' then
+                    state := 2;
+                else
+                    state := 1;
+                end if;
+            elsif state = 2 then
+                if uart_rx_busy = '1' then
+                    state := 3;
+                else
+                    state := 2;
+                end if;
+            elsif state = 3 then
+                if uart_rx_busy = '0' then
+                    ram_wren <= '1';
+                    state := 4;
+                else
+                    state := 3;
+                end if;
+            elsif state = 4 then
+                ram_wren <= '0';
+                state := 5;
+            elsif state = 5 then
+                state := 6;
+            elsif state = 6 then
+                state := 7;
+            elsif state = 7 then
+                uart_tx_rdy <= '0';
+                state := 8;
+            elsif state = 8 then
+                if uart_tx_rdy = '1' then
+                    uart_tx_rdy <= '0';
+                elsif uart_tx_busy = '0' then
+                    ram_address <= std_logic_vector(unsigned(ram_address) + 1);
+                    state := 9;
+                else
+                    state := 8;
+                end if;
+            elsif state = 9 then
+                state := 10;
+            elsif state = 10 then
+                state := 0;
+            else
+                state := 0;
+            end if;
+        end if;
+    end process;
+
+end arch; -- arch

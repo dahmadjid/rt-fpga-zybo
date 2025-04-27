@@ -1,0 +1,12 @@
+# File names are either absolute or relative to the parent folder of the
+# vhdl_ls.toml file and supports glob-style patterns.
+
+[libraries]
+
+# Defines library lib2
+worklib.files = [
+    "fphdl/fixed_float_types_c.vhd",
+    "fphdl/fixed_pkg_c.vhd",
+    "fphdl/float_pkg_c.vhd",
+    'src/**/*.vhd',
+]
