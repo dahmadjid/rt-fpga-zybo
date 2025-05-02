@@ -1,8 +1,36 @@
+from pyglm.glm import vec3
 import serial
+from camera import Camera
 from src.fixedpoint import FixedPoint, fixed_t
-from src.test_utils import Ray, Vec3, Triangle
+from src.test_utils import Ray, Vec3, Triangle, Vec3_from_glm
 import time
-s = serial.Serial("/dev/ttyUSB0", 921600)
+from obj import load_obj
+import cv2
+import numpy as np
+
+def load_mesh(name: str, position: vec3) -> list[Triangle]:
+    obj, ok = load_obj(name)
+    if not ok:
+        raise RuntimeError(f"Failed to load obj file {name}")
+    
+    tris: list[Triangle] = [Triangle.zero() for _ in range(len(obj.faces))]
+
+    for i, face in enumerate(obj.faces):
+        v0 = vec3(*obj.vertices[face[0][0]]) + position
+        v1 = vec3(*obj.vertices[face[1][0]]) + position
+        v2 = vec3(*obj.vertices[face[2][0]]) + position
+
+        n0 = vec3(*obj.vertex_normals[face[0][2]])
+        n1 = vec3(*obj.vertex_normals[face[1][2]])
+        n2 = vec3(*obj.vertex_normals[face[2][2]])
+
+        average = (n0 + n1 + n2) / 3.0
+
+        tris[i].x = Vec3_from_glm(v0)
+        tris[i].y = Vec3_from_glm(v1)
+        tris[i].z = Vec3_from_glm(v2)
+        tris[i].normal = Vec3_from_glm(average)
+    return tris
 
 def trace_ray(_ray: Ray) -> tuple[FixedPoint, int]:
     s.write(bytes([3]))
@@ -40,6 +68,34 @@ def read_triangle(address: int) -> Triangle:
         data = int(s.read().hex(), 16)
         tri_bytes[35 - i] = bin(data)[2:].zfill(8)
     return Triangle.from_bytes(tri_bytes)
+
+tris = load_mesh("tri.obj", vec3(0,0,0))
+camera = Camera(128, 128, vec3(-8.2, 0, -0.94), 0.0, -4.5, 45)
+s = serial.Serial("/dev/ttyUSB0", 921600)
+for i, tri in enumerate(tris):
+    write_triangle(i, tri)
+
+print(len(tris) - 1)
+write_triangle(len(tris) - 1, Triangle.zero())
+for i, direction in enumerate(camera.ray_directions):
+    ray = Ray(origin=Vec3_from_glm(camera.position), direction=Vec3_from_glm(direction))
+    res = trace_ray(ray)
+    if res[1] != 65535:
+        print(i, ray, res[0], res[1])
+        camera.image[i] = 255
+    else:
+        camera.image[i] = 0
+
+s.close()
+image = np.reshape(camera.image, (camera.width, camera.height))
+cv2.imshow("window", image)
+cv2.waitKey(0)
+exit()
+
+
+
+
+
 
 ray = Ray(origin = Vec3(-8.5, 0, -0.94), direction = Vec3(1.23048, -0.120812304, 0.009252384))
 

@@ -98,6 +98,9 @@ class Vec3:
     def to_bytes(self) -> list[str]:
         return [*fixed_t_to_bytes(self.x), *fixed_t_to_bytes(self.y), *fixed_t_to_bytes(self.z)]
     
+    def to_glm(self) -> glm.vec3:
+        return glm.vec3(float(self.x), float(self.y), float(self.z))
+    
     @staticmethod
     def from_bytes(bytes: list[str]) -> "Vec3":
         assert len(bytes) == 9
