@@ -59,11 +59,10 @@ architecture arch of main is
     signal rst_out: std_logic := '0';
     signal hit: std_logic := '0';
     signal hit_info: HitInfo_t := zero_hit_info;
-    -- signal closest_hit_info: HitInfo_t := zero_hit_info;
-    -- signal closest_done_out: std_logic := '0';
-    -- signal any_hit: std_logic := '0';
+    signal closest_hit_info: HitInfo_t := zero_hit_info;
+    signal closest_done_out: std_logic := '0';
+    signal any_hit: std_logic := '0';
     signal intersector_rst: std_logic := '0';
-    signal is_processing_state: std_logic := '0';
     signal divided_clk: std_logic := '0';
     signal clk_counter: unsigned(6 downto 0) := (others => '0');
     signal state_led: std_logic_vector(2 downto 0) := (others => '0'); 
@@ -73,6 +72,8 @@ architecture arch of main is
     signal processing_data_state : integer := 0;
     signal sending_data_state : integer := 0;
     signal trace_tx_data: bytes(5 downto 0) := (others => (others => '0'));
+
+    constant ram_data_zero: std_logic_vector(287 downto 0) := (others => '0');
 begin        
     -- out_hit_info <= hit_info;
     clk_divider: process(clk)
@@ -82,7 +83,7 @@ begin
         end if;
     end process;
 
-    divided_clk <= clk;
+    divided_clk <= clk_counter(0);
 
     rst <= not btn(0);
     -- led(0) <= uart_rx_busy;
@@ -98,42 +99,21 @@ begin
         "101" when state = TERMINATED else
         "111";
      
-    led <= uart_rx_buffer(0)(3 downto 0) when btn(1) = '1' else uart_rx_valid & state_led;
-    -- uart_rx_data_out <= uart_rx_data;
-
-    
---     -- hit_out <= hit;
---     -- t_out <= hit_info.t;
-
---     -- uart_rx_buffer_out <= uart_rx_buffer(to_integer(uart_rx_buffer_index_in));
---     -- uart_tx_index_out <= uart_tx_index;
---     -- rst <= key(0);
---     -- clk <= clock_50;
---     -- uart_rx_busy_out <= uart_rx_busy;
---     -- ram_gen: for i in 0 to 5 generate
---     --     ram_inst: component ram
---     --     port map(
---     --         address_a => ram_address,
---     --         clock => clk,
---     --         data_a => ram_data(i * 64 + 63 downto i * 64),
---     --         wren_a => ram_wren,
---     --         q_a => ram_q(i * 64 + 63 downto i * 64)
---     --     );
---     -- end generate;
+    led <= uart_rx_buffer(0)(3 downto 0) when btn(1) = '1' else std_logic_vector(last_tri_index(3 downto 0)) when btn(2) = '1' else uart_rx_valid & state_led;
         
---     ----- RT -----
-    
---     -- current_tri_index <= unsigned(ram_address);
---     -- done_in <= '1' when (current_tri_index = last_tri_index) else '0';
-    current_triangle <= (
-        x => (x => "111111111110111111111111", y => "111111111110111111111111", z => "000000000001000000000000"), 
-        y => (x => "111111111110111111111111", y => "000000000001000000000000", z => "000000000000000000000000"), 
-        z => (x => "111111111110111111111111", y => "111111111110111111111111", z => "111111111110111111111111"), 
-        normal => (x => "111111111110111111111111", y => "000000000000000000000000", z => "000000000000000000000000") 
-    );
-    
 
-    is_processing_state <= divided_clk when state = PROCESSING else '0';
+
+    -- current_triangle <= (
+    --     x => (x => "111111111110111111111111", y => "111111111110111111111111", z => "000000000001000000000000"), 
+    --     y => (x => "111111111110111111111111", y => "000000000001000000000000", z => "000000000000000000000000"), 
+    --     z => (x => "111111111110111111111111", y => "111111111110111111111111", z => "111111111110111111111111"), 
+    --     normal => (x => "111111111110111111111111", y => "000000000000000000000000", z => "000000000000000000000000") 
+    -- );
+    
+    current_tri_index <= "0000000" & unsigned(ram_address);
+    current_triangle <= ram_q_to_triangle(ram_q);
+    done_in <= '1' when (current_tri_index = last_tri_index) else '0';
+
     intersector: component triangle_intersector
     port map(
         clk => divided_clk,
@@ -149,19 +129,19 @@ begin
         -- stage_2_out => stage_2
     );
 
-    -- closest_hit_inst: component closest_hit
-    -- port map(
-    --     clk => is_processing_state,
-    --     rst => intersector_rst,
-    --     data_valid => rst_out,
-    --     done_in => done_out,
-    --     hit_info =>  hit_info,
-    --     hit => hit,
+    closest_hit_inst: component closest_hit
+    port map(
+        clk => divided_clk,
+        rst => intersector_rst,
+        data_valid => rst_out,
+        done_in => done_out,
+        hit_info =>  hit_info,
+        hit => hit,
         
-    --     done_out => closest_done_out,
-    --     any_hit => any_hit,
-    --     closest_hit_info => closest_hit_info
-    -- );
+        done_out => closest_done_out,
+        any_hit => any_hit,
+        closest_hit_info => closest_hit_info
+    );
     
     ram_b: component ram
     generic map (
@@ -181,7 +161,7 @@ begin
     generic map(
         BIT_RATE => 921600,
         PAYLOAD_BITS => 8,
-        CLK_HZ => 125_000_000
+        CLK_HZ => 125_000_000 / 2
     )
     port map(
         clk => divided_clk,
@@ -196,7 +176,7 @@ begin
     generic map(
         BIT_RATE => 921600,
         PAYLOAD_BITS => 8,
-        CLK_HZ => 125_000_000
+        CLK_HZ => 125_000_000 / 2
     )
     port map(
         clk => divided_clk,
@@ -208,6 +188,7 @@ begin
     );
 
     process(divided_clk, rst)
+        variable temp_ram_data: std_logic_vector(287 downto 0) := (others => '0');
     begin
         if rising_edge(divided_clk) then
             if rst = '0' then
@@ -237,6 +218,7 @@ begin
                                 uart_rx_buffer_len_expected <= "000010"; -- 2 bytes for address
                             elsif uart_rx_data = TRACE then
                                 uart_rx_buffer_len_expected <= "010010"; -- 18 bytes for ray_t
+                                ram_address <= (others => '0');
                             else
                                 uart_rx_buffer_len_expected <= "111111";
                             end if; 
@@ -257,6 +239,7 @@ begin
                             receiving_data_state <= 0;
                             if uart_rx_buffer_index = uart_rx_buffer_len_expected then
                                 state <= PROCESSING;
+                                processing_data_state <= 0;
                             else
                                 uart_rx_buffer_index <= uart_rx_buffer_index + 1;
                             end if;
@@ -267,9 +250,17 @@ begin
                             if processing_data_state = 0 then
                                 ram_address <= uart_rx_buffer(2)(0 downto 0) & uart_rx_buffer(1);
                                 for i in 35 downto 0 loop
-                                    ram_data(i * 8 + 7 downto i * 8) <= uart_rx_buffer(i + 3);  
+                                    temp_ram_data(i * 8 + 7 downto i * 8) := uart_rx_buffer((35 - i) + 3);  
                                 end loop;
-                                processing_data_state <= 1;
+                                ram_data <= temp_ram_data;
+                                
+                                if temp_ram_data = ram_data_zero then
+                                    -- if we send all zeros in triangle data, last tri index is set to ram_address
+                                    last_tri_index <= "0000000" & unsigned(uart_rx_buffer(2)(0 downto 0)) & unsigned(uart_rx_buffer(1));
+                                    state <= IDLE;
+                                else
+                                    processing_data_state <= 1;
+                                end if;
                                 ram_wren <= '0';
                             elsif processing_data_state = 1 then
                                 ram_wren <= '1';
@@ -288,21 +279,32 @@ begin
                         elsif uart_rx_buffer(0) = TRACE then
                             current_ray.origin <= bytes_to_vec3(uart_rx_buffer(9 downto 1));
                             current_ray.direction <= bytes_to_vec3(uart_rx_buffer(18 downto 10));
-                            done_in <= '1';
+
+                            if intersector_rst = '1' and done_in = '0' then
+                                ram_address <= std_logic_vector(unsigned(ram_address) + 1);
+                            end if;
+
+                            ram_wren <= '0';
                             intersector_rst <= '1';
-                            current_tri_index <= (others => '0');
-                            if done_out = '1' then
+
+                            if closest_done_out = '1' then
                                 state <= SENDING_DATA;
 
                                 for i in 0 to 2 loop
-                                    trace_tx_data(i) <= to_slv(hit_info.t(i * 8 + 7 - 12 downto i * 8 - 12));
+                                    trace_tx_data(i) <= to_slv(closest_hit_info.t(i * 8 + 7 - 12 downto i * 8 - 12));
                                 end loop;
-                                
-                                for i in 0 to 1 loop
-                                    trace_tx_data(i+3) <= std_logic_vector(hit_info.tri_index(i * 8 + 7 downto i * 8));
-                                end loop;   
+                                if any_hit = '1' then
+                                    for i in 0 to 1 loop
+                                        trace_tx_data(i+3) <= std_logic_vector(closest_hit_info.tri_index(i * 8 + 7 downto i * 8));
+                                    end loop;   
+                                else
+                                    for i in 0 to 1 loop
+                                        trace_tx_data(i+3) <= (others => '1');
+                                    end loop;   
+                                end if;
 
                                 uart_tx_index <= (others => '0');
+
                                 intersector_rst <= '0';
                             end if;
                         else
@@ -334,16 +336,9 @@ begin
                             end if;
                         elsif uart_rx_buffer(0) = TRACE then
                             if sending_data_state = 0 then
-                                -- if hit = '1' then
-                                -- else
-                                --     for i in 0 to 4 loop
-                                --         trace_tx_data(i) := x"f0";
-                                --     end loop;
-                                -- end if;    
                                 uart_tx_data <= trace_tx_data(to_integer(uart_tx_index));
                                 sending_data_state <= 1;
                                 uart_tx_rdy <= '0';
-
                             elsif sending_data_state = 1 then
                                 if uart_tx_index = "000101" then -- index == 5
                                     state <= IDLE;

@@ -152,14 +152,6 @@ async def test(dut: HierarchyObject):
     # await RisingEdge(dut.clk)
     # print(f"{dut.state_out.value=} {dut.uart_rx_buffer_out.value=}")
     
-
-# 'ray': {'direction': {'x': '000101010001000000000000 (337.0)',
-# 'y': '000100011111111011111111 (287.937255859375)',
-#     'z': '001001010000000000000000 (592.0)'},
-# 'origin': {'x': '110011000111110011111111 (-824.1875)',
-# 'y': '000000000000000000000000 (0.0)',
-# 'z': '111101011111000011111111 (-160.9375)'}},
-
     log.info("========================= TRACE =========================")
     sink = uart.UartSink(dut.uart_tx, 921600)
     source = uart.UartSource(dut.uart_rx, 921600)
@@ -167,7 +159,6 @@ async def test(dut: HierarchyObject):
 
     await source.write(bytes([3]))
     await source.wait()
-    log.info(f"{str(dut.uart_rx_data_out)=}")
     ray = Ray(origin = Vec3(-8.1999998, 0, -0.94), direction = Vec3(1.0053048, -0.120812304, 0.009252384))
     for byte in ray.to_bytes():
         log.info(f"{byte=}")
@@ -185,9 +176,9 @@ async def test(dut: HierarchyObject):
     expected_t = fixed_t(7.1620069)
     data = ""
     for i in range(3):
-        khra: bytearray = await queue.get()
-        log.info(f"{i=} {khra=}")
-        data = bin(int(khra[0]))[2:].zfill(8) + data
+        data: bytearray = await queue.get()
+        log.info(f"{i=} {data=}")
+        data = bin(int(data[0]))[2:].zfill(8) + data
 
     log.info(f"{expected_t.fp_str=}, {expected_t=}, {fixed_t(data)=}")
     

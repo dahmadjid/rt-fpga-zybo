@@ -19,6 +19,8 @@ fphdl_files=[
 if os.path.exists("work"):
     os.system("rm -rf work")
 
+os.chdir("src")
+
 runner.build(
     vhdl_sources=fphdl_files,
     always=True,

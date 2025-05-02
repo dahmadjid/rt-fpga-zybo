@@ -151,3 +151,6 @@ def fixed_t_to_bytes(fp: FixedPoint) -> list[str]:
     assert len(fp.fp_str) == 24
     return [fp.fp_str[16:24], fp.fp_str[8:16], fp.fp_str[0:8]]
 
+def fixed_t_from_bytes(bytes: list[str]) -> FixedPoint:
+    assert len(bytes) == 3
+    return fixed_t(bytes[2] + bytes[1] + bytes[0])

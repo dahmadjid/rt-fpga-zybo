@@ -16,6 +16,7 @@ package ray_tracer_pkg is
     end record;
 
     function bytes_to_vec3(vec3_bytes: bytes(8 downto 0)) return vec3;
+    function logic_vector_to_vec3(vec3_bytes: std_logic_vector(71 downto 0)) return vec3;
 
     type vec3_vector is array(NATURAL range <>) of vec3;
     
@@ -38,6 +39,7 @@ package ray_tracer_pkg is
         z: vec3;
         normal: vec3;
     end record;
+    function ram_q_to_triangle(tri_bytes: std_logic_vector(287 downto 0)) return Triangle_t;
 
     type HitInfo_t is record 
         tri_index: unsigned(15 downto 0);
@@ -58,7 +60,7 @@ package ray_tracer_pkg is
 
     constant zero_hit_info: HitInfo_t := (
         tri_index => (others => '0'),
-        t => (others => '0')
+        t => (11 => '0', others => '1')
     );
 
     type DebugVectors_t is record
@@ -397,6 +399,26 @@ package body ray_tracer_pkg is
             ret.z(11 - 8 * (2 - i) downto 4 - 8 * (2 - i)) := sfixed(vec3_bytes(i + 6));
         end loop;  
         return ret;
+    end function;
+
+    
+    function logic_vector_to_vec3(vec3_bytes: std_logic_vector(71 downto 0)) return vec3 is
+        variable ret: vec3;
+    begin
+        ret.x := sfixed(vec3_bytes(71 downto 48));
+        ret.y := sfixed(vec3_bytes(47 downto 24));
+        ret.z := sfixed(vec3_bytes(23 downto 0));
+        return ret;
+    end function;
+
+    function ram_q_to_triangle(tri_bytes: std_logic_vector(287 downto 0)) return Triangle_t is
+        variable tri: Triangle_t := zero_triangle; 
+    begin
+        tri.x := logic_vector_to_vec3(tri_bytes(287 downto 216));
+        tri.y := logic_vector_to_vec3(tri_bytes(215 downto 144));
+        tri.z := logic_vector_to_vec3(tri_bytes(143 downto 72));
+        tri.normal := logic_vector_to_vec3(tri_bytes(71 downto 0));
+        return tri;
     end function;
 
 

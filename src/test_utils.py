@@ -4,7 +4,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal
 from cocotb.handle import HierarchyObject, BinaryValue, ModifiableObject
-from .fixedpoint import FixedPoint, fixed_t_to_bytes, fixed_t
+from .fixedpoint import FixedPoint, fixed_t_from_bytes, fixed_t_to_bytes, fixed_t
 
 
 g_total_fp_error = 0
@@ -97,6 +97,18 @@ class Vec3:
     
     def to_bytes(self) -> list[str]:
         return [*fixed_t_to_bytes(self.x), *fixed_t_to_bytes(self.y), *fixed_t_to_bytes(self.z)]
+    
+    @staticmethod
+    def from_bytes(bytes: list[str]) -> "Vec3":
+        assert len(bytes) == 9
+        return Vec3(x = fixed_t_from_bytes(bytes[0:3]), 
+                    y = fixed_t_from_bytes(bytes[3:6]),
+                    z = fixed_t_from_bytes(bytes[6:])
+                )
+
+    @staticmethod
+    def zero() -> "Vec3":
+        return Vec3(fixed_t(0), fixed_t(0), fixed_t(0))
 
 @dataclass
 class Ray:
@@ -108,17 +120,6 @@ class Ray:
         return Ray(Vec3.from_json(d["origin"]), Vec3.from_json(d["direction"]))
 
     def to_bytes(self) -> list[str]:
-        # current_ray.origin <= bytes_to_vec3(uart_rx_buffer(12 downto 1));
-        # current_ray.direction <= bytes_to_vec3(uart_rx_buffer(24 downto 13));
-        # for i in 0 to 3 loop
-        #     ret.x(i * 8 + 7 downto i * 8) := sfixed(vec3_bytes(i));
-        # end loop;  
-        # for i in 0 to 3 loop
-        #     ret.y(i * 8 + 7 downto i * 8) := sfixed(vec3_bytes(i + 4));
-        # end loop;  
-        # for i in 0 to 3 loop
-        #     ret.z(i * 8 + 7 downto i * 8) := sfixed(vec3_bytes(i + 8));
-        # end loop;  
         return [*self.origin.to_bytes(), *self.direction.to_bytes()]
     
 @dataclass
@@ -127,6 +128,19 @@ class Triangle:
     y: Vec3
     z: Vec3
     normal: Vec3
+
+    def to_bytes(self) -> list[str]:
+        return [*self.x.to_bytes(), *self.y.to_bytes(), *self.z.to_bytes(), *self.normal.to_bytes()]
+
+    @staticmethod
+    def from_bytes(bytes: list[str]) -> "Triangle":
+        assert len(bytes) == 36
+        return Triangle(
+            x = Vec3.from_bytes(bytes[0:9]),
+            y = Vec3.from_bytes(bytes[9:18]),
+            z = Vec3.from_bytes(bytes[18:27]),
+            normal = Vec3.from_bytes(bytes[27:]),
+        )
 
     @staticmethod
     def from_json(d: dict[str, Any]):
@@ -159,7 +173,10 @@ class Triangle:
         out += f'z => (x => "{self.z.x.fp_str}", y => "{self.z.y.fp_str}", z => "{self.z.z.fp_str}"), \n'
         out += f'normal => (x => "{self.normal.x.fp_str}", y => "{self.normal.y.fp_str}", z => "{self.normal.z.fp_str}") \n'
         return out
-
+    
+    @staticmethod
+    def zero() -> "Triangle":
+        return Triangle(Vec3.zero(), Vec3.zero(), Vec3.zero(), Vec3.zero())
 
 @dataclass
 class HitInfo:
