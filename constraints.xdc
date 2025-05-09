@@ -144,4 +144,11 @@ set_property -dict {PACKAGE_PIN W20 IOSTANDARD LVCMOS33} [get_ports uart_rx]
 #set_property -dict { PACKAGE_PIN P19   IOSTANDARD LVCMOS33 } [get_ports vga_hs]; #IO_L13N_T2_MRCC_34 Sch=VGA_HS
 #set_property -dict { PACKAGE_PIN R19   IOSTANDARD LVCMOS33 } [get_ports vga_vs]; #IO_0_34 Sch=VGA_VS
 
-create_generated_clock -name divided_clk -source [get_ports clk] -divide_by 2 -add -master_clock [get_clocks sys_clk_pin] [get_pins {clk_counter_reg[0]/Q}]
+create_generated_clock -name divided_clk1 -source [get_ports clk] -divide_by 2 -add -master_clock sys_clk_pin [get_pins {clk_counter_reg[0]/Q}]
+create_generated_clock -name divided_clk2 -source [get_ports clk] -divide_by 4 -add -master_clock sys_clk_pin [get_pins {clk_counter_reg[1]/Q}]
+create_generated_clock -name divided_clk3 -source [get_ports clk] -divide_by 8 -add -master_clock sys_clk_pin [get_pins {clk_counter_reg[2]/Q}]
+create_generated_clock -name divided_clk4 -source [get_ports clk] -divide_by 16 -add -master_clock sys_clk_pin [get_pins {clk_counter_reg[3]/Q}]
+create_generated_clock -name divided_clk5 -source [get_ports clk] -divide_by 32 -add -master_clock sys_clk_pin [get_pins {clk_counter_reg[4]/Q}]
+
+
+

@@ -75,8 +75,8 @@ begin
     selected_input_range <= r0_1 when selected_input_data(11 downto 0) = x"000" else 
                             r1_7 when selected_input_data(11 downto 3) = x"00" & '0' else r8;
 
-    out_rst <= stage_3.rst;
-    output_data <= fixed_t(lookup_output) when stage_3.original_sign_bit = '0' else not fixed_t(lookup_output);
+    out_rst <= stage_4.rst;
+    output_data <= fixed_t(lookup_output) when stage_4.original_sign_bit = '0' else not fixed_t(lookup_output);
 
     lookup0_1_inst: rom
     generic map(
@@ -118,8 +118,8 @@ begin
                               to_slv(stage_2.input_data(2 downto -9)) when stage_2.input_range = r1_7 else
                               to_slv(stage_2.input_data(11 downto 0));
 
-    lookup_output  <= q_0_1 when stage_3.input_range = r0_1 else
-                      q_1_7 when stage_3.input_range = r1_7 else
+    lookup_output  <= q_0_1 when stage_4.input_range = r0_1 else
+                      q_1_7 when stage_4.input_range = r1_7 else
                       q_8;
 
     main: process (clk, rst)

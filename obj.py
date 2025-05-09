@@ -1,4 +1,8 @@
 # thnx ai for converting this code from odin.
+from pyglm.glm import vec3
+
+from src.test_utils import Triangle, Vec3_from_glm
+
 class ObjModel:
     def __init__(self):
         self.vertices = []
@@ -65,6 +69,30 @@ def load_obj(obj_file_path) -> tuple[ObjModel, bool]:
                     print(f"Warning: Skipping face with less than 3 vertices in line: {line}")
 
     return model, True
+
+def load_mesh(name: str, position: vec3) -> list[Triangle]:
+    obj, ok = load_obj(name)
+    if not ok:
+        raise RuntimeError(f"Failed to load obj file {name}")
+    
+    tris: list[Triangle] = [Triangle.zero() for _ in range(len(obj.faces))]
+
+    for i, face in enumerate(obj.faces):
+        v0 = vec3(*obj.vertices[face[0][0]]) + position
+        v1 = vec3(*obj.vertices[face[1][0]]) + position
+        v2 = vec3(*obj.vertices[face[2][0]]) + position
+
+        n0 = vec3(*obj.vertex_normals[face[0][2]])
+        n1 = vec3(*obj.vertex_normals[face[1][2]])
+        n2 = vec3(*obj.vertex_normals[face[2][2]])
+
+        average = (n0 + n1 + n2) / 3.0
+
+        tris[i].x = Vec3_from_glm(v0)
+        tris[i].y = Vec3_from_glm(v1)
+        tris[i].z = Vec3_from_glm(v2)
+        tris[i].normal = Vec3_from_glm(average)
+    return tris
 
 if __name__ == '__main__':
     obj_file = 'suzanne.obj'  # Replace with your OBJ file path

@@ -25,7 +25,7 @@ runner.build(
     vhdl_sources=fphdl_files,
     always=True,
     hdl_library="work",
-    build_dir="."
+    build_dir=".",
 )
 # force order
 vhdl_sources = [

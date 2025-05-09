@@ -32,11 +32,12 @@ architecture arch of main is
     signal uart_tx_busy: std_logic := '0';
     signal uart_tx_data: std_logic_vector(7 downto 0) := (others => '0');
     signal uart_tx_rdy: std_logic := '0';
+    -- signal uart_tx_rdy_prev: std_logic := '0';
+    -- signal uart_tx_rdy_pulse: std_logic := '0';
 
     signal uart_rx_valid: std_logic := '0';
+    -- signal uart_rx_valid_pulse: std_logic := '0';
     signal uart_rx_data: std_logic_vector(7 downto 0) := (others => '0');
-    signal uart_rx_error: std_logic := '0';
-    
     signal uart_rx_buffer: bytes(38 downto 0) := (others => (others => '0'));
     signal uart_rx_buffer_len_expected: unsigned(5 downto 0) := (others => '0');
     signal uart_rx_buffer_index: unsigned(5 downto 0) := (others => '0');
@@ -64,6 +65,7 @@ architecture arch of main is
     signal any_hit: std_logic := '0';
     signal intersector_rst: std_logic := '0';
     signal divided_clk: std_logic := '0';
+    -- signal previous_divided_clock: std_logic := '0';
     signal clk_counter: unsigned(6 downto 0) := (others => '0');
     signal state_led: std_logic_vector(2 downto 0) := (others => '0'); 
 
@@ -71,11 +73,10 @@ architecture arch of main is
     signal receiving_data_state : integer := 0;
     signal processing_data_state : integer := 0;
     signal sending_data_state : integer := 0;
-    signal trace_tx_data: bytes(5 downto 0) := (others => (others => '0'));
-
+    signal trace_tx_data: bytes(31 downto 0) := (others => (others => '0'));
+    signal debug_vec: DebugVectors_t;
     constant ram_data_zero: std_logic_vector(287 downto 0) := (others => '0');
 begin        
-    -- out_hit_info <= hit_info;
     clk_divider: process(clk)
     begin
         if rising_edge(clk) then
@@ -83,12 +84,9 @@ begin
         end if;
     end process;
 
-    divided_clk <= clk_counter(0);
+    divided_clk <= clk_counter(4);
 
     rst <= not btn(0);
-    -- led(0) <= uart_rx_busy;
-    -- led(1) <= uart_tx_busy;
-    -- led(3) <= uart_rx_busy;
 
     state_led <=
         "000" when state = IDLE else
@@ -99,24 +97,44 @@ begin
         "101" when state = TERMINATED else
         "111";
      
-    led <= uart_rx_buffer(0)(3 downto 0) when btn(1) = '1' else std_logic_vector(last_tri_index(3 downto 0)) when btn(2) = '1' else uart_rx_valid & state_led;
-        
-
-
-    -- current_triangle <= (
-    --     x => (x => "111111111110111111111111", y => "111111111110111111111111", z => "000000000001000000000000"), 
-    --     y => (x => "111111111110111111111111", y => "000000000001000000000000", z => "000000000000000000000000"), 
-    --     z => (x => "111111111110111111111111", y => "111111111110111111111111", z => "111111111110111111111111"), 
-    --     normal => (x => "111111111110111111111111", y => "000000000000000000000000", z => "000000000000000000000000") 
-    -- );
+    led <= uart_rx_buffer(0)(3 downto 0) when btn(1) = '1' else uart_rx_buffer(0)(7 downto 4) when btn(2) = '1' else uart_rx_valid & state_led;
     
+        
+    -- uart_rx_buffer <= (
+    --     0 => "00000011", 
+    --     1 => "11001100", 
+    --     2 => "01111100",  
+    --     3 => "11111111", 
+    --     4 => "00000000", 
+    --     5 => "00000000", 
+    --     6 => "00000000", 
+    --     7 => "11110101", 
+    --     8 => "11110000", 
+    --     9 => "11111111", 
+    --     10 => "11110000", 
+    --     11 => "00001111", 
+    --     12 => "00000000", 
+    --     13 => "10000110", 
+    --     14 => "11111111", 
+    --     15 => "11111111", 
+    --     16 => "11111100", 
+    --     17 => "00000001", 
+    --     18 => "00000000", 
+    --     others => (others => '0'));
     current_tri_index <= "0000000" & unsigned(ram_address);
     current_triangle <= ram_q_to_triangle(ram_q);
+    -- current_triangle <= ram_q_to_triangle("111111111110111111111111111111111110111111111111000000000001000000000000111111111110111111111111000000000001000000000000000000000000000000000000111111111110111111111111111111111110111111111111111111111110111111111111111111111110111111111111000000000000000000000000000000000000000000000000");
+    -- current_ray.origin <= bytes_to_vec3(( 0 => "11111111", 1 => "01111100", 2 => "11001100", 3 => "00000000", 4 => "00000000", 5 => "00000000", 6 => "11111111", 7 => "11110000", 8 => "11110101"));
+--     -- current_ray.direction <= bytes_to_vec3(( 0 => "00000000", 1 => "00001111", 2 => "11110000", 3 => "11111111", 4 => "11111111", 5 => "10000110", 6 => "00000000", 7 => "00000001", 8 => "11111100"));
+
+    -- current_triangle <= ram_q_to_triangle("100110011111000111111111111111111110111111111111000000000001000000000000100110011111000111111111000000000001000000000000000000000000000000000000100110011111000111111111111111111110111111111111111111111110111111111111111111111110111111111111000000000000000000000000000000000000000000000000");
     done_in <= '1' when (current_tri_index = last_tri_index) else '0';
+    -- done_in <= '1';
 
     intersector: component triangle_intersector
     port map(
         clk => divided_clk,
+        clr => rst,
         rst => intersector_rst,
         ray => current_ray,
         triangle => current_triangle,
@@ -125,6 +143,7 @@ begin
         done_out => done_out,
         hit => hit,
         hit_info => hit_info,
+        debug_vectors => debug_vec, 
         rst_out => rst_out
         -- stage_2_out => stage_2
     );
@@ -147,10 +166,10 @@ begin
     generic map (
         DATA_WIDTH => 288,
         ADDR_WIDTH => 9,
-        INIT_DATA_FILE => ""
+        INIT_DATA_FILE => "ram.data"
     )
     port map(
-        clk => clk,
+        clk => clk_counter(3),
         we => ram_wren,
         a => ram_address,
         di => ram_data,
@@ -159,9 +178,9 @@ begin
        
     uart_rx_inst: component uartrx
     generic map(
-        BIT_RATE => 921600,
+        BIT_RATE => 115200,
         PAYLOAD_BITS => 8,
-        CLK_HZ => 125_000_000 / 2
+        CLK_HZ => 125_000_000 / 32
     )
     port map(
         clk => divided_clk,
@@ -174,9 +193,9 @@ begin
 
     uart_tx_inst: component uarttx
     generic map(
-        BIT_RATE => 921600,
+        BIT_RATE => 115200,
         PAYLOAD_BITS => 8,
-        CLK_HZ => 125_000_000 / 2
+        CLK_HZ => 125_000_000 / 32
     )
     port map(
         clk => divided_clk,
@@ -277,6 +296,7 @@ begin
                             state <= SENDING_DATA;
                             uart_tx_index <= (others => '0');
                         elsif uart_rx_buffer(0) = TRACE then
+                            
                             current_ray.origin <= bytes_to_vec3(uart_rx_buffer(9 downto 1));
                             current_ray.direction <= bytes_to_vec3(uart_rx_buffer(18 downto 10));
 
@@ -289,30 +309,65 @@ begin
 
                             if closest_done_out = '1' then
                                 state <= SENDING_DATA;
-
-                                for i in 0 to 2 loop
-                                    trace_tx_data(i) <= to_slv(closest_hit_info.t(i * 8 + 7 - 12 downto i * 8 - 12));
-                                end loop;
+                                trace_tx_data(0) <= to_slv(closest_hit_info.t(11 downto 4));
+                                trace_tx_data(1) <= to_slv(closest_hit_info.t(3 downto -4));
+                                trace_tx_data(2) <= to_slv(closest_hit_info.t(-5 downto -12));
                                 if any_hit = '1' then
-                                    for i in 0 to 1 loop
-                                        trace_tx_data(i+3) <= std_logic_vector(closest_hit_info.tri_index(i * 8 + 7 downto i * 8));
-                                    end loop;   
+                                    trace_tx_data(3) <= std_logic_vector(closest_hit_info.tri_index(15 downto 8));
+                                    trace_tx_data(4) <= std_logic_vector(closest_hit_info.tri_index(7 downto 0));
                                 else
                                     for i in 0 to 1 loop
                                         trace_tx_data(i+3) <= (others => '1');
                                     end loop;   
                                 end if;
+                                
+                                trace_tx_data(5) <= to_slv(debug_vec.x.x(11 downto 4));
+                                trace_tx_data(6) <= to_slv(debug_vec.x.x(3 downto -4));
+                                trace_tx_data(7) <= to_slv(debug_vec.x.x(-5 downto -12));
+
+                                trace_tx_data(8) <= to_slv(debug_vec.x.y(11 downto 4));
+                                trace_tx_data(9) <= to_slv(debug_vec.x.y(3 downto -4));
+                                trace_tx_data(10) <= to_slv(debug_vec.x.y(-5 downto -12));
+                                
+                                trace_tx_data(11) <= to_slv(debug_vec.x.z(11 downto 4));
+                                trace_tx_data(12) <= to_slv(debug_vec.x.z(3 downto -4));
+                                trace_tx_data(13) <= to_slv(debug_vec.x.z(-5 downto -12));
+                                
+
+                                trace_tx_data(14) <= to_slv(debug_vec.y.x(11 downto 4));
+                                trace_tx_data(15) <= to_slv(debug_vec.y.x(3 downto -4));
+                                trace_tx_data(16) <= to_slv(debug_vec.y.x(-5 downto -12));
+                                trace_tx_data(17) <= to_slv(debug_vec.y.y(11 downto 4));
+                                trace_tx_data(18) <= to_slv(debug_vec.y.y(3 downto -4));
+                                trace_tx_data(19) <= to_slv(debug_vec.y.y(-5 downto -12));
+                                trace_tx_data(20) <= to_slv(debug_vec.y.z(11 downto 4));
+                                trace_tx_data(21) <= to_slv(debug_vec.y.z(3 downto -4));
+                                trace_tx_data(22) <= to_slv(debug_vec.y.z(-5 downto -12));
+                                
+                                
+                                trace_tx_data(23) <= to_slv(debug_vec.z.x(11 downto 4));
+                                trace_tx_data(24) <= to_slv(debug_vec.z.x(3 downto -4));
+                                trace_tx_data(25) <= to_slv(debug_vec.z.x(-5 downto -12));
+                                trace_tx_data(26) <= to_slv(debug_vec.z.y(11 downto 4));
+                                trace_tx_data(27) <= to_slv(debug_vec.z.y(3 downto -4));
+                                trace_tx_data(28) <= to_slv(debug_vec.z.y(-5 downto -12));
+                                trace_tx_data(29) <= to_slv(debug_vec.z.z(11 downto 4));
+                                trace_tx_data(30) <= to_slv(debug_vec.z.z(3 downto -4));
+                                trace_tx_data(31) <= to_slv(debug_vec.z.z(-5 downto -12));
+                                
 
                                 uart_tx_index <= (others => '0');
-
                                 intersector_rst <= '0';
                             end if;
                         else
+                            state <= TERMINATED;
                         end if; 
                     when SENDING_DATA =>
                         if uart_rx_buffer(0) = READ_TRIANGLE then
                             if sending_data_state = 0 then
-                                uart_tx_data <= ram_q(to_integer(uart_tx_index) * 8 + 7 downto to_integer(uart_tx_index) * 8);
+                                if uart_tx_index /= "100100" then
+                                    uart_tx_data <= ram_q(to_integer(uart_tx_index) * 8 + 7 downto to_integer(uart_tx_index) * 8);
+                                end if;
                                 sending_data_state <= 1;
                                 uart_tx_rdy <= '0';
                             elsif sending_data_state = 1 then
@@ -340,7 +395,7 @@ begin
                                 sending_data_state <= 1;
                                 uart_tx_rdy <= '0';
                             elsif sending_data_state = 1 then
-                                if uart_tx_index = "000101" then -- index == 5
+                                if uart_tx_index = "100000" then -- index == 5
                                     state <= IDLE;
                                     sending_data_state <= 0;
                                 else

@@ -1,8 +1,8 @@
-import numpy as np
 import math
+from os import remove
 from pyglm import glm
 from glm import vec3
-
+from PIL import Image
 class Camera:
     width:                 int
     height:                int
@@ -18,7 +18,7 @@ class Camera:
     pixel_delta_v:         float
     ray_directions:        list[vec3]
     monte_carlo_accu_data: list[vec3]
-    image:                 np.ndarray
+    image:                 list[vec3]
     x_axis:                vec3
     y_axis:                vec3
     z_axis:                vec3
@@ -34,7 +34,7 @@ class Camera:
         self.position    = position
         self.frame_index = 1
         self.z_axis      = vec3(0, 0, -1)
-        self.image = np.ndarray((0))
+
         self.resize_camera(width, height)
         self.rotate_camera(pitch, yaw)
         self.calculate_ray_directions()
@@ -45,7 +45,7 @@ class Camera:
         self.size = width * height
         self.monte_carlo_accu_data = [vec3(0, 0, 0) for _  in range(self.size)]
         self.ray_directions = [vec3(0, 0, 0) for _  in range(self.size)]
-        self.image = np.zeros((self.size), np.uint8)
+        self.image = [vec3(0, 0, 0) for _  in range(self.size)]
         self.viewport_height = 1.0 * self.v_fov_h
         self.viewport_width = self.viewport_height * float(width) / float(height)
         self.pixel_delta_u = self.viewport_width / float(self.width)
@@ -105,6 +105,23 @@ class Camera:
         self.position = self.position + self.z_axis * z
         self.reset_accu_data()
 
+
+    def save_image_ppm(self, filename: str):
+        ppm = f"P3 {self.width} {self.height} {255}\n"
+        for y in range(self.height):
+            for x in range(self.width):
+                pix = self.image[x + y * self.width]
+                ppm += f"{int(pix.x)} {int(pix.y)} {int(pix.z)} "
+            ppm += "\n"
+
+        with open(filename, "w+") as f:
+            f.write(ppm) 
+
+    def display_ppm(self):
+        self.save_image_ppm("__temp__.ppm")
+        img = Image.open("__temp__.ppm")
+        img.show()
+        
     def update_camera(self) -> bool:
         pitch: float = 0
         yaw: float = 0

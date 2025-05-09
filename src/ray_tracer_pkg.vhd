@@ -100,6 +100,7 @@ package ray_tracer_pkg is
     end record;
 
     type stage_3_t is record 
+        ray: Ray_t;
         hit_info: HitInfo_t;
         hit_pos: vec3;
         triangle: Triangle_t;
@@ -124,7 +125,7 @@ package ray_tracer_pkg is
         hit: std_logic;
         done: std_logic;
         rst: std_logic;
-        -- debug_vectors: DebugVectors_t;
+        debug_vectors: DebugVectors_t;
     end record;
 
     type stage_5_t is record 
@@ -136,7 +137,7 @@ package ray_tracer_pkg is
         hit: std_logic;
         done: std_logic;
         rst: std_logic;
-        -- debug_vectors: DebugVectors_t;
+        debug_vectors: DebugVectors_t;
     end record;
 
     type stage_6_t is record 
@@ -147,7 +148,7 @@ package ray_tracer_pkg is
         hit: std_logic;
         done: std_logic;
         rst: std_logic;
-        -- debug_vectors: DebugVectors_t;
+        debug_vectors: DebugVectors_t;
     end record;
 
     type stage_7_t is record 
@@ -155,13 +156,14 @@ package ray_tracer_pkg is
         hit: std_logic;
         done: std_logic;
         rst: std_logic;
-        -- debug_vectors: DebugVectors_t;
+        debug_vectors: DebugVectors_t;
     end record;
 
     component triangle_intersector is
         port (
-            clk   : in std_logic;
-            rst : in std_logic;
+            clk: in std_logic;
+            clr: in std_logic;
+            rst: in std_logic;
             ray: in Ray_t;
             triangle: in Triangle_t;
             tri_index: in unsigned(15 downto 0);
@@ -173,7 +175,7 @@ package ray_tracer_pkg is
             -- stage_1_out: out stage_1_t;
             -- stage_2_out: out stage_2_t;
             -- reciprocal_out_data_d: out fixed_t;
-            -- debug_vectors: out DebugVectors_t;
+            debug_vectors: out DebugVectors_t;
             rst_out: out std_logic -- 1 signifies that the data is valid (its just the rst signal moved through the pipeline)
         );
     end component;
@@ -285,6 +287,28 @@ package ray_tracer_pkg is
     );
     end component;
 
+    component fifo is 
+    generic (
+        DATA_W: natural := 4; -- Data width
+        DEPTH:  natural  := 8;  -- Depth of FIFO                   
+        UPP_TH: natural := 4; -- Upper threshold to generate Almost-full
+        LOW_TH: natural := 2  -- Lower threshold to generate Almost-empty
+    );
+    port (
+        clk: in std_logic;                                      -- Clock
+        rstn: in std_logic;                                     -- Active-low Synchronous Reset
+        i_wren: in std_logic;                                   -- Write Enable
+        i_wrdata: in std_logic_vector(DATA_W - 1 downto 0);     -- Write-data
+        o_alm_full: out std_logic;                              -- Almost-full signal
+        o_full: out std_logic;                                  -- Full signal
+        i_rden: in std_logic;                                   -- Read Enable
+        o_rddata: out std_logic_vector(DATA_W - 1 downto 0);    -- Read-data
+        o_alm_empty: out std_logic;                             -- Almost-empty signal
+        o_empty: out std_logic                                  -- Empty signal
+    );
+    end component;
+
+
     constant zero_stage_1: stage_1_t := (
         NdotOrigin => (others => '0'),
         NdotRayDir => (others => '0'),
@@ -316,6 +340,7 @@ package ray_tracer_pkg is
     );
 
     constant zero_stage_3: stage_3_t := (
+        ray => zero_ray,
         triangle => zero_triangle,
         edge_x => zero_vec3,
         edge_y => zero_vec3,
@@ -339,7 +364,7 @@ package ray_tracer_pkg is
         normal => zero_vec3,        
         hit => '1',
         done => '0',
-        -- debug_vectors => (others => zero_vec3),
+        debug_vectors => (others => zero_vec3),
         rst => '0'
     );
 
@@ -351,7 +376,7 @@ package ray_tracer_pkg is
         normal => zero_vec3,
         hit => '1',
         done => '0',
-        -- debug_vectors => (others => zero_vec3),
+        debug_vectors => (others => zero_vec3),
         rst => '0'
     );
 
@@ -362,7 +387,7 @@ package ray_tracer_pkg is
         NdotN2 => (others => '0') ,
         hit => '1',
         done => '0',
-        -- debug_vectors => (others => zero_vec3),
+        debug_vectors => (others => zero_vec3),
         rst => '0'
     );
 
@@ -370,7 +395,7 @@ package ray_tracer_pkg is
         hit_info => zero_hit_info,
         hit => '1',
         done => '0',
-        -- debug_vectors => (others => zero_vec3),
+        debug_vectors => (others => zero_vec3),
         rst => '0'
     );
 
@@ -387,18 +412,17 @@ package body ray_tracer_pkg is
     end function;
 
     function bytes_to_vec3(vec3_bytes: bytes(8 downto 0)) return vec3 is
-        variable ret: vec3;
+        variable temp: std_logic_vector(71 downto 0);
     begin
-        for i in 0 to 2 loop
-            ret.x(11 - 8 * (2 - i) downto 4 - 8 * (2 - i)) := sfixed(vec3_bytes(i));
-        end loop;  
-        for i in 0 to 2 loop
-            ret.y(11 - 8 * (2 - i) downto 4 - 8 * (2 - i)) := sfixed(vec3_bytes(i + 3));
-        end loop;  
-        for i in 0 to 2 loop
-            ret.z(11 - 8 * (2 - i) downto 4 - 8 * (2 - i)) := sfixed(vec3_bytes(i + 6));
-        end loop;  
-        return ret;
+        
+        
+        temp := vec3_bytes(0) & vec3_bytes(1) & vec3_bytes(2) &
+        vec3_bytes(3) & vec3_bytes(4) & vec3_bytes(5) &
+        vec3_bytes(6) & vec3_bytes(7) & vec3_bytes(8);
+
+
+
+        return logic_vector_to_vec3(temp);
     end function;
 
     
