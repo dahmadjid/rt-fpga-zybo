@@ -76,6 +76,8 @@ architecture arch of main is
     signal trace_tx_data: bytes(31 downto 0) := (others => (others => '0'));
     signal debug_vec: DebugVectors_t;
     constant ram_data_zero: std_logic_vector(287 downto 0) := (others => '0');
+
+    signal debug_index: integer := 0;
 begin        
     clk_divider: process(clk)
     begin
@@ -84,7 +86,7 @@ begin
         end if;
     end process;
 
-    divided_clk <= clk_counter(4);
+    divided_clk <= clk_counter(0);
 
     rst <= not btn(0);
 
@@ -169,7 +171,7 @@ begin
         INIT_DATA_FILE => "ram.data"
     )
     port map(
-        clk => clk_counter(3),
+        clk => clk,
         we => ram_wren,
         a => ram_address,
         di => ram_data,
@@ -178,9 +180,9 @@ begin
        
     uart_rx_inst: component uartrx
     generic map(
-        BIT_RATE => 115200,
+        BIT_RATE => 921600,
         PAYLOAD_BITS => 8,
-        CLK_HZ => 125_000_000 / 32
+        CLK_HZ => 125_000_000 / 2
     )
     port map(
         clk => divided_clk,
@@ -193,9 +195,9 @@ begin
 
     uart_tx_inst: component uarttx
     generic map(
-        BIT_RATE => 115200,
+        BIT_RATE => 921600,
         PAYLOAD_BITS => 8,
-        CLK_HZ => 125_000_000 / 32
+        CLK_HZ => 125_000_000 / 2
     )
     port map(
         clk => divided_clk,
@@ -227,6 +229,8 @@ begin
                         sending_data_state <= 0;
                         ram_wren <= '0';
                         intersector_rst <= '0';
+                        debug_index <= 0;
+                        trace_tx_data <= (others => (others => '0'));
                         if uart_rx_valid = '1' then
                             state <= RECEIVING_DATA;
                             uart_rx_buffer(0) <= uart_rx_data;
@@ -306,8 +310,38 @@ begin
 
                             ram_wren <= '0';
                             intersector_rst <= '1';
-
-                            if closest_done_out = '1' then
+                            if intersector_rst = '1' and rst_out = '1' then
+                                if debug_index = 0 then
+                                    debug_index <= 1;
+                                    trace_tx_data(5) <= to_slv(hit_info.t(11 downto 4));
+                                    trace_tx_data(6) <= to_slv(hit_info.t(3 downto -4));
+                                    trace_tx_data(7) <= to_slv(hit_info.t(-5 downto -12));
+                                    trace_tx_data(8) <= to_slv(closest_hit_info.t(11 downto 4));
+                                    trace_tx_data(9) <= to_slv(closest_hit_info.t(3 downto -4));
+                                    trace_tx_data(10) <= to_slv(closest_hit_info.t(-5 downto -12));
+                                    trace_tx_data(11) <= (0 => hit, 1 => done_out, 2 => any_hit, 3 => closest_done_out, others => '0');
+                                elsif debug_index = 1 then
+                                    debug_index <= 2;
+                                    trace_tx_data(12) <= to_slv(hit_info.t(11 downto 4));
+                                    trace_tx_data(13) <= to_slv(hit_info.t(3 downto -4));
+                                    trace_tx_data(14) <= to_slv(hit_info.t(-5 downto -12));
+                                    trace_tx_data(15) <= to_slv(closest_hit_info.t(11 downto 4));
+                                    trace_tx_data(16) <= to_slv(closest_hit_info.t(3 downto -4));
+                                    trace_tx_data(17) <= to_slv(closest_hit_info.t(-5 downto -12));
+                                    trace_tx_data(18) <= (0 => hit, 1 => done_out, 2 => any_hit, 3 => closest_done_out, others => '0');
+                                elsif debug_index = 2 then
+                                    debug_index <= 3;
+                                    trace_tx_data(19) <= to_slv(hit_info.t(11 downto 4));
+                                    trace_tx_data(20) <= to_slv(hit_info.t(3 downto -4));
+                                    trace_tx_data(21) <= to_slv(hit_info.t(-5 downto -12));
+                                    trace_tx_data(22) <= to_slv(closest_hit_info.t(11 downto 4));
+                                    trace_tx_data(23) <= to_slv(closest_hit_info.t(3 downto -4));
+                                    trace_tx_data(24) <= to_slv(closest_hit_info.t(-5 downto -12));
+                                    trace_tx_data(25) <= (0 => hit, 1 => done_out, 2 => any_hit, 3 => closest_done_out, others => '0');
+                                end if;
+                            end if;
+                            
+                            if intersector_rst = '1' and closest_done_out = '1' then
                                 state <= SENDING_DATA;
                                 trace_tx_data(0) <= to_slv(closest_hit_info.t(11 downto 4));
                                 trace_tx_data(1) <= to_slv(closest_hit_info.t(3 downto -4));
@@ -321,43 +355,14 @@ begin
                                     end loop;   
                                 end if;
                                 
-                                trace_tx_data(5) <= to_slv(debug_vec.x.x(11 downto 4));
-                                trace_tx_data(6) <= to_slv(debug_vec.x.x(3 downto -4));
-                                trace_tx_data(7) <= to_slv(debug_vec.x.x(-5 downto -12));
+                                trace_tx_data(26) <= to_slv(hit_info.t(11 downto 4));
+                                trace_tx_data(27) <= to_slv(hit_info.t(3 downto -4));
+                                trace_tx_data(28) <= to_slv(hit_info.t(-5 downto -12));
+                                trace_tx_data(29) <= (0 => hit, 1 => done_out, 2 => any_hit, 3 => closest_done_out, others => '0');
 
-                                trace_tx_data(8) <= to_slv(debug_vec.x.y(11 downto 4));
-                                trace_tx_data(9) <= to_slv(debug_vec.x.y(3 downto -4));
-                                trace_tx_data(10) <= to_slv(debug_vec.x.y(-5 downto -12));
-                                
-                                trace_tx_data(11) <= to_slv(debug_vec.x.z(11 downto 4));
-                                trace_tx_data(12) <= to_slv(debug_vec.x.z(3 downto -4));
-                                trace_tx_data(13) <= to_slv(debug_vec.x.z(-5 downto -12));
-                                
-
-                                trace_tx_data(14) <= to_slv(debug_vec.y.x(11 downto 4));
-                                trace_tx_data(15) <= to_slv(debug_vec.y.x(3 downto -4));
-                                trace_tx_data(16) <= to_slv(debug_vec.y.x(-5 downto -12));
-                                trace_tx_data(17) <= to_slv(debug_vec.y.y(11 downto 4));
-                                trace_tx_data(18) <= to_slv(debug_vec.y.y(3 downto -4));
-                                trace_tx_data(19) <= to_slv(debug_vec.y.y(-5 downto -12));
-                                trace_tx_data(20) <= to_slv(debug_vec.y.z(11 downto 4));
-                                trace_tx_data(21) <= to_slv(debug_vec.y.z(3 downto -4));
-                                trace_tx_data(22) <= to_slv(debug_vec.y.z(-5 downto -12));
-                                
-                                
-                                trace_tx_data(23) <= to_slv(debug_vec.z.x(11 downto 4));
-                                trace_tx_data(24) <= to_slv(debug_vec.z.x(3 downto -4));
-                                trace_tx_data(25) <= to_slv(debug_vec.z.x(-5 downto -12));
-                                trace_tx_data(26) <= to_slv(debug_vec.z.y(11 downto 4));
-                                trace_tx_data(27) <= to_slv(debug_vec.z.y(3 downto -4));
-                                trace_tx_data(28) <= to_slv(debug_vec.z.y(-5 downto -12));
-                                trace_tx_data(29) <= to_slv(debug_vec.z.z(11 downto 4));
-                                trace_tx_data(30) <= to_slv(debug_vec.z.z(3 downto -4));
-                                trace_tx_data(31) <= to_slv(debug_vec.z.z(-5 downto -12));
-                                
-
-                                uart_tx_index <= (others => '0');
                                 intersector_rst <= '0';
+                                debug_index <= 0;
+                                uart_tx_index <= (others => '0');
                             end if;
                         else
                             state <= TERMINATED;
@@ -391,11 +396,14 @@ begin
                             end if;
                         elsif uart_rx_buffer(0) = TRACE then
                             if sending_data_state = 0 then
-                                uart_tx_data <= trace_tx_data(to_integer(uart_tx_index));
+                                if uart_tx_index /= to_unsigned(32, 6) then
+                                    uart_tx_data <= trace_tx_data(to_integer(uart_tx_index));
+                                end if;
+
                                 sending_data_state <= 1;
                                 uart_tx_rdy <= '0';
                             elsif sending_data_state = 1 then
-                                if uart_tx_index = "100000" then -- index == 5
+                                if uart_tx_index = to_unsigned(30, 6) then -- index == 5
                                     state <= IDLE;
                                     sending_data_state <= 0;
                                 else

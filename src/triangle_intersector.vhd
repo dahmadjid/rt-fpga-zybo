@@ -53,6 +53,10 @@ architecture arch of triangle_intersector is
     signal reciprocal_out_data: fixed_t := (others => '0');
     signal reciprocal_out_rst: std_logic := '0';
 
+    signal s2_hit: std_logic := '1';
+    signal s3_hit: std_logic := '1';
+    signal s7_hit: std_logic := '1';
+
     procedure zero_stage_1_proc(signal stage_1: inout stage_1_t) is
     begin
         -- stage_1.NdotOrigin <= (others => '0');
@@ -182,6 +186,10 @@ begin
         ret => stage_6.NdotN2
     );
 
+    s2_hit <= '0' when stage_1.NdotRayDir > 0 else stage_1.hit;
+    s3_hit <= stage_2.hit when stage_2.hit_info.t > x"00001f" else '0';
+    s7_hit <= '0' when stage_6.NdotN0 <= 0 or stage_6.NdotN1 <= 0 or stage_6.NdotN2 <= 0 else stage_6.hit;
+        
     pipeline: process(
         clk,
         rst, 
@@ -196,9 +204,6 @@ begin
         stage_6,
         stage_7
     ) is
-        variable s2_hit: std_logic:= '1';
-        variable s3_hit: std_logic:= '1';
-        variable s7_hit: std_logic:= '1';
     begin        
         if clr = '0' then
             stage_1_d1 <= zero_stage_1;
@@ -292,36 +297,29 @@ begin
                 );
             end if;
 
-            if stage_1_d5.rst = '0' then
-                stage_1_d6 <= zero_stage_1;
-            else
-                stage_1_d6 <= stage_1_d5;
-            end if;
-
-            if stage_1_d6.rst = '0' then
-                stage_1 <= zero_stage_1;
-            else
-                stage_1 <= stage_1_d6;
-            end if;
-
-            
             -- if stage_1_d5.rst = '0' then
+            --     stage_1_d6 <= zero_stage_1;
+            -- else
+            --     stage_1_d6 <= stage_1_d5;
+            -- end if;
+
+            -- if stage_1_d6.rst = '0' then
             --     stage_1 <= zero_stage_1;
             -- else
-            --     stage_1 <= stage_1_d5;
+            --     stage_1 <= stage_1_d6;
             -- end if;
+
+            
+            if stage_1_d5.rst = '0' then
+                stage_1 <= zero_stage_1;
+            else
+                stage_1 <= stage_1_d5;
+            end if;
 
             -- stage 1 to stage 2
             if stage_1.rst = '0' then
                 stage_2 <= zero_stage_2;
             else
-                
-                if stage_1.NdotRayDir > 0 then
-                    s2_hit := '0';
-                else
-                    s2_hit := stage_1.hit;
-                end if;
-
                 stage_2 <= (
                     triangle => stage_1.triangle,
                     edge_x => stage_1.edge_x,
@@ -342,11 +340,6 @@ begin
                 stage_3_d1 <= zero_stage_3;
             else
             -- stage 2 to stage 3
-                if stage_2.hit_info.t > x"00001f" then
-                    s3_hit := stage_2.hit;
-                else
-                    s3_hit := '0';
-                end if;
 
                 stage_3_d1 <= (
                     ray => stage_2.ray,
@@ -366,7 +359,6 @@ begin
                 stage_3 <= zero_stage_3;
             else
                 -- stage 2 to stage 3
-
                 stage_3 <= (
                     ray => zero_ray,
                     hit_info => stage_3_d1.hit_info,
@@ -475,12 +467,6 @@ begin
             if stage_6.rst = '0' then
                 stage_7 <= zero_stage_7;
             else
-                if stage_6.NdotN0 <= 0 or stage_6.NdotN1 <= 0 or stage_6.NdotN2 <= 0 then 
-                    s7_hit := '0';
-                else
-                    s7_hit := stage_6.hit;
-                end if;
-
                 stage_7 <= (
                     hit_info => stage_6.hit_info,
                     hit => s7_hit,
@@ -489,11 +475,11 @@ begin
                     debug_vectors => (stage_6.debug_vectors.x, (stage_6.NdotN0, stage_6.NdotN1, stage_6.NdotN2), stage_6.debug_vectors.z)
                 );
             end if;
-            done_out <= stage_7.done;
-            hit_info <= stage_7.hit_info;
-            hit <= stage_7.hit;
-            rst_out <= stage_7.rst;
-            debug_vectors <= stage_7.debug_vectors;
         end if;
     end process;
+    done_out <= stage_7.done;
+    hit_info <= stage_7.hit_info;
+    hit <= stage_7.hit;
+    rst_out <= stage_7.rst;
+    debug_vectors <= stage_7.debug_vectors;
 end arch ; -- arch

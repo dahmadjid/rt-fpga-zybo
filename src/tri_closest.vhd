@@ -44,17 +44,17 @@ begin
         rst_out => rst_out
     );
 
-    closest_hit_inst: component closest_hit
-    port map(
-        clk => clk,
-        rst => rst,
-        data_valid => rst_out,
-        done_in => intr_done_out,
-        hit_info =>  hit_info,
-        hit => hit,
+    -- closest_hit_inst: component closest_hit
+    -- port map(
+    --     clk => clk,
+    --     rst => clr,
+    --     data_valid => rst_out,
+    --     done_in => intr_done_out,
+    --     hit_info =>  hit_info,
+    --     hit => hit,
         
-        done_out => done_out,
-        any_hit => any_hit,
-        closest_hit_info => closest_hit_info
-    );
+    --     done_out => done_out,
+    --     any_hit => any_hit,
+    --     closest_hit_info => closest_hit_info
+    -- );
 end arch;

@@ -23,7 +23,6 @@ architecture arch of dot is
     signal ret_reg: fixed_t := (others => '0');
 begin
     ret <= ret_reg;
-
     process(clk)
     begin
         if rising_edge(clk) then

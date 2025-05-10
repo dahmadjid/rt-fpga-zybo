@@ -81,88 +81,189 @@ class Output:
 
 #         camera.save_image_ppm(f"tri_{tri_index}.ppm")
 
+# @cocotb.test() # type: ignore
+# async def test(dut: HierarchyObject):
+#     with open("./tri_intersector_test_data.json") as f:
+#         test_data = json.load(f)
+#     cocotb.start_soon(Clock(dut.clk, 20, "ns").start())
+#     dut.rst.value = 0
+#     await RisingEdge(dut.clk)
+#     pipeline_delay = 0
+#     for i, test in enumerate(test_data):
+#         input_data = Input.from_json({**test["input"], "done_in": 1})
+
+#         if i == 0:
+#             input_data = Input(
+#                 ray = Ray(origin = Vec3(-8.1999998, 0, -0.94), direction = Vec3(1.0053048, -0.120812304, 0.009252384)),
+#                 done_in=1,
+#                 triangle=Triangle(
+#                     x=Vec3(-1.000000, -1.000000, 1.000000),
+#                     y=Vec3(-1.000000, 1.000000, 0.000000),
+#                     z=Vec3(-1.000000, -1.000000, -1.000000),
+#                     normal=Vec3(-1.0000, 0.0000, 0.0000),
+#                 ),
+#                 tri_index=0,
+#             )
+#         assign_dict_to_dut(dut, asdict(input_data))
+#         dut.rst.value = 1
+#         await RisingEdge(dut.clk)
+#         log.info(f"================== CYCLE {i} ({pipeline_delay=}) ==================")
+#         print(i, dut.done_out, dut.rst_out)
+#         # # log.info(f"{format_record(dut.stage_1_out)}")
+#         # # log.info(f"{format_record(dut.stage_2_out)}")
+#         # # log.info(f"{format_record(dut.reciprocal_out_data_d)}")
+#         # try:
+#         #     # print(f"{fixed_t(str(dut.Nd1.x.value))=}, {fixed_t(str(dut.Nd1.y.value))=}, {fixed_t(str(dut.Nd1.z.value))=}")
+#         #     print(f"{fixed_t(str(dut.Nd2.x.value))=}, {fixed_t(str(dut.Nd2.y.value))=}, {fixed_t(str(dut.Nd2.z.value))=}")
+#         #     # print(f"{fixed_t(str(dut.Nd3.x.value))=}, {fixed_t(str(dut.Nd3.y.value))=}, {fixed_t(str(dut.Nd3.z.value))=}")
+#         #     print("t", fixed_t(str(dut.hit_info.t)))
+#         # except:
+#         #     pass
+
+#         if dut.rst_out.value != 1:
+#             pipeline_delay += 1
+#             print(f"{dut.stage_2.hit}")
+#             print(f"{dut.stage_3.hit}")
+#             print(f"{dut.stage_7.hit}")
+#         else:
+#             output_data = Output.from_json({**test_data[i - pipeline_delay]["output"], "done_out": 1})
+#             if i - pipeline_delay == 0:
+#                 output_data = Output(hit=True, hit_info=HitInfo(0, fixed_t(7.1620069)), done_out=1)
+#             print("hit=", dut.hit, "expected=",output_data.hit)
+#             print("t=", fixed_t(str(dut.hit_info.t.value)), "expected=",output_data.hit_info.t)
+#             if dut.hit == output_data.hit:
+#                 if output_data.hit == 1:
+#                     assert_dict_to_dut(dut, asdict(output_data), 0.015)
+#                 continue
+#             else:
+#                 # y [-1, 1, 0]
+#                 # C1 [0, -1.86525857, -0.87373435]
+
+#                 assert(False)
+#             print("done_out", dut.done_out, output_data.done_out)
+#             print("t", fixed_t(str(dut.hit_info.t)), output_data.hit_info.t)
+
+#     delayed_result_start_index = len(test_data) - pipeline_delay  
+#     for i in range(pipeline_delay):
+#         await RisingEdge(dut.clk)
+#         print(f"================== CYCLE {99 + i} ==================")
+#         output_data = Output.from_json( {**test_data[delayed_result_start_index + i]["output"], "done_out": 1})
+#         print("hit", dut.hit, output_data.hit)
+#         if dut.hit == output_data.hit:
+#             if dut.hit == 1:
+#                 assert_dict_to_dut(dut, asdict(output_data), 0.015)
+#             continue
+#         else:
+#             assert(False)
+#         print("===========================", i)
+#         print("done_out", dut.done_out, output_data.done_out)
+#         print("hit_pos.x", fixed_t(str(dut.hit_info.hit_pos.x)), output_data.hit_info.hit_pos.x)
+#         print("hit_pos.y", fixed_t(str(dut.hit_info.hit_pos.y)), output_data.hit_info.hit_pos.y)
+#         print("hit_pos.z", fixed_t(str(dut.hit_info.hit_pos.z)), output_data.hit_info.hit_pos.z)
+#         print("normal.x", fixed_t(str(dut.hit_info.normal.x)), output_data.hit_info.normal.x)
+#         print("normal.y", fixed_t(str(dut.hit_info.normal.y)), output_data.hit_info.normal.y)
+#         print("normal.z", fixed_t(str(dut.hit_info.normal.z)), output_data.hit_info.normal.z)
+#         print("material", dut.hit_info.material, output_data.hit_info.material)
+#         print("t", fixed_t(str(dut.hit_info.t)), output_data.hit_info.t)
+
+
 @cocotb.test() # type: ignore
 async def test(dut: HierarchyObject):
-    with open("./tri_intersector_test_data.json") as f:
-        test_data = json.load(f)
+
+    tris = load_mesh("../test2.obj", vec3())
+    ray = Ray(origin=Vec3(x=-11.0, y=0.0, z=-2.0), direction=Vec3(x=0.9891266226768494, y=-0.0744289979338646, z=0.15701913833618164))
+    test_data = [
+        {
+            "input": Input(
+                ray = ray,
+                triangle=tris[0],
+                tri_index=0,
+                done_in=0,
+            ),
+            "output": Output(
+                done_out=0,
+                hit=1,
+                hit_info=HitInfo(
+                    t=13.30,
+                    tri_index=0,
+                )
+            )
+        },
+        {
+            "input": Input(
+                ray = ray,
+                triangle=tris[1],
+                tri_index=1,
+                done_in=1,
+            ),
+            "output": Output(
+                done_out=1,
+                hit=0,
+                hit_info=HitInfo(
+                    t=12,
+                    tri_index=1,
+                )
+            )
+        }
+    ]
+
+    test_data[-1]["input"].done_in = 1
+    test_data[-1]["output"].done_out = 1
+
     cocotb.start_soon(Clock(dut.clk, 20, "ns").start())
+    dut.clr.value = 0
     dut.rst.value = 0
     await RisingEdge(dut.clk)
     pipeline_delay = 0
     for i, test in enumerate(test_data):
-        input_data = Input.from_json({**test["input"], "done_in": 1})
-
-        if i == 0:
-            input_data = Input(
-                ray = Ray(origin = Vec3(-8.1999998, 0, -0.94), direction = Vec3(1.0053048, -0.120812304, 0.009252384)),
-                done_in=1,
-                triangle=Triangle(
-                    x=Vec3(-1.000000, -1.000000, 1.000000),
-                    y=Vec3(-1.000000, 1.000000, 0.000000),
-                    z=Vec3(-1.000000, -1.000000, -1.000000),
-                    normal=Vec3(-1.0000, 0.0000, 0.0000),
-                ),
-                tri_index=0,
-            )
+        input_data = test["input"]
         assign_dict_to_dut(dut, asdict(input_data))
+        dut.clr.value = 1
         dut.rst.value = 1
         await RisingEdge(dut.clk)
         log.info(f"================== CYCLE {i} ({pipeline_delay=}) ==================")
         print(i, dut.done_out, dut.rst_out)
-        # # log.info(f"{format_record(dut.stage_1_out)}")
-        # # log.info(f"{format_record(dut.stage_2_out)}")
-        # # log.info(f"{format_record(dut.reciprocal_out_data_d)}")
-        # try:
-        #     # print(f"{fixed_t(str(dut.Nd1.x.value))=}, {fixed_t(str(dut.Nd1.y.value))=}, {fixed_t(str(dut.Nd1.z.value))=}")
-        #     print(f"{fixed_t(str(dut.Nd2.x.value))=}, {fixed_t(str(dut.Nd2.y.value))=}, {fixed_t(str(dut.Nd2.z.value))=}")
-        #     # print(f"{fixed_t(str(dut.Nd3.x.value))=}, {fixed_t(str(dut.Nd3.y.value))=}, {fixed_t(str(dut.Nd3.z.value))=}")
-        #     print("t", fixed_t(str(dut.hit_info.t)))
-        # except:
-        #     pass
-
         if dut.rst_out.value != 1:
             pipeline_delay += 1
-            print(f"{dut.stage_2.hit}")
-            print(f"{dut.stage_3.hit}")
-            print(f"{dut.stage_7.hit}")
         else:
-            output_data = Output.from_json({**test_data[i - pipeline_delay]["output"], "done_out": 1})
-            if i - pipeline_delay == 0:
-                output_data = Output(hit=True, hit_info=HitInfo(0, fixed_t(7.1620069)), done_out=1)
-            print("hit=", dut.hit, "expected=",output_data.hit)
+            output_data = test_data[i - pipeline_delay]["output"]
+            print("hit=", dut.hit, "expected=", output_data.hit)
             print("t=", fixed_t(str(dut.hit_info.t.value)), "expected=",output_data.hit_info.t)
-            break
             if dut.hit == output_data.hit:
                 if output_data.hit == 1:
                     assert_dict_to_dut(dut, asdict(output_data), 0.015)
                 continue
             else:
-                # y [-1, 1, 0]
-                # C1 [0, -1.86525857, -0.87373435]
-
                 assert(False)
+
             print("done_out", dut.done_out, output_data.done_out)
             print("t", fixed_t(str(dut.hit_info.t)), output_data.hit_info.t)
 
-    delayed_result_start_index = len(test_data) - pipeline_delay  
-    for i in range(pipeline_delay):
-        await RisingEdge(dut.clk)
-        print(f"================== CYCLE {99 + i} ==================")
-        output_data = Output.from_json( {**test_data[delayed_result_start_index + i]["output"], "done_out": 1})
-        print("hit", dut.hit, output_data.hit)
-        if dut.hit == output_data.hit:
-            if dut.hit == 1:
-                assert_dict_to_dut(dut, asdict(output_data), 0.015)
-            continue
+    output_index = 0
+    i = 0
+    while True:
+        log.info(f"================== CYCLE {i} ({pipeline_delay=}) ==================")
+        if dut.rst_out.value != 1:
+            pipeline_delay += 1
+            log.info(f"{fixed_t(str(dut.reciprocal_out_data.value))=}")
+            log.info(f"{fixed_t(str(dut.stage_1_d5.temp_t.value))=}")
+            log.info(f"{fixed_t(str(dut.stage_1_d6.temp_t.value))=}")
+            log.info(f"{fixed_t(str(dut.stage_1.temp_t.value))=}")
+            log.info(f"{fixed_t(str(dut.stage_2.hit_info.t.value))=}")
         else:
-            assert(False)
-        print("===========================", i)
-        print("done_out", dut.done_out, output_data.done_out)
-        print("hit_pos.x", fixed_t(str(dut.hit_info.hit_pos.x)), output_data.hit_info.hit_pos.x)
-        print("hit_pos.y", fixed_t(str(dut.hit_info.hit_pos.y)), output_data.hit_info.hit_pos.y)
-        print("hit_pos.z", fixed_t(str(dut.hit_info.hit_pos.z)), output_data.hit_info.hit_pos.z)
-        print("normal.x", fixed_t(str(dut.hit_info.normal.x)), output_data.hit_info.normal.x)
-        print("normal.y", fixed_t(str(dut.hit_info.normal.y)), output_data.hit_info.normal.y)
-        print("normal.z", fixed_t(str(dut.hit_info.normal.z)), output_data.hit_info.normal.z)
-        print("material", dut.hit_info.material, output_data.hit_info.material)
-        print("t", fixed_t(str(dut.hit_info.t)), output_data.hit_info.t)
+            output_data = test_data[output_index]["output"]
+            output_index += 1
+            print("hit=", dut.hit, "expected=", output_data.hit)
+            print("t=", fixed_t(str(dut.hit_info.t.value)), "expected=",output_data.hit_info.t)
+            print(f"{dut.done_out.value=}")
+            if dut.done_out.value == 1:
+                break
+            # if dut.hit == output_data.hit:
+            #     if output_data.hit == 1:
+            #         assert_dict_to_dut(dut, asdict(output_data), 0.015)
+            #     continue
+            # else:
+            #     assert(False)
+        await RisingEdge(dut.clk)
+        i += 1
+        

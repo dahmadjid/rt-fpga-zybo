@@ -399,6 +399,25 @@ package ray_tracer_pkg is
         rst => '0'
     );
 
+
+    COMPONENT ila_0
+    PORT (
+        clk : IN STD_LOGIC;
+
+
+
+        probe0 : IN STD_LOGIC_VECTOR(23 DOWNTO 0); 
+        probe1 : IN STD_LOGIC_VECTOR(23 DOWNTO 0); 
+        probe2 : IN STD_LOGIC_VECTOR(15 DOWNTO 0); 
+        probe3 : IN STD_LOGIC_VECTOR(15 DOWNTO 0); 
+        probe4 : IN STD_LOGIC_VECTOR(0 DOWNTO 0); 
+        probe5 : IN STD_LOGIC_VECTOR(0 DOWNTO 0); 
+        probe6 : IN STD_LOGIC_VECTOR(0 DOWNTO 0); 
+        probe7 : IN STD_LOGIC_VECTOR(0 DOWNTO 0);
+        probe8 : IN STD_LOGIC_VECTOR(0 DOWNTO 0)
+    );
+    END COMPONENT  ;
+
 end package;
 
 

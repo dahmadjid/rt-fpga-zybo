@@ -1,3 +1,4 @@
+import glm
 from pyglm.glm import vec3
 import serial
 from camera import Camera
@@ -5,7 +6,7 @@ from src.fixedpoint import FixedPoint, fixed_t
 from src.test_utils import Ray, Vec3, Triangle, Vec3_from_glm
 from obj import load_mesh
 
-s = serial.Serial("/dev/ttyUSB0", 115200)
+s = serial.Serial("/dev/ttyUSB0", 921600)
 
 def trace_ray(_ray: Ray) -> tuple[FixedPoint, int]:
     s.write(bytes([3]))
@@ -22,17 +23,37 @@ def trace_ray(_ray: Ray) -> tuple[FixedPoint, int]:
         index_data += (bin(int(s.read().hex(), 16))[2:].zfill(8))
 
 
-    def read_vec(): 
+    def read_fixed_t(): 
         __data__ = ""
         for i in range(3):
             __data__ += (bin(int(s.read().hex(), 16))[2:].zfill(8))
         return  fixed_t(__data__)
 
-    for i in range(3):
-        print(i, "x", read_vec())
-        print(i, "y", read_vec())
-        print(i, "z", read_vec())
-
+    # for i in range(3):
+    print("=================")
+    print("=================")
+    print("=================")
+    print("debug_index=0")
+    print("hit_info", read_fixed_t())
+    print("closest_hit_info", read_fixed_t())
+    print("flags", bin(int(s.read()[0])))
+    print("=================")
+    print("debug_index=1")
+    print("hit_info", read_fixed_t())
+    print("closest_hit_info", read_fixed_t())
+    print("flags", bin(int(s.read()[0])))
+    print("=================")
+    print("debug_index=2")
+    print("hit_info", read_fixed_t())
+    print("closest_hit_info", read_fixed_t())
+    print("flags", bin(int(s.read()[0])))
+    print("=================")
+    print("final=1")
+    print("hit_info", read_fixed_t())
+    print("flags", bin(int(s.read()[0])))
+    print("=================")
+    print("=================")
+    
     return (fixed_t(t_data), int(index_data, 2))
 
 def write_triangle(address: int, tri: Triangle):
@@ -41,7 +62,6 @@ def write_triangle(address: int, tri: Triangle):
     address_bytes = bytes([address & 0xff, (address & 0xff00) >> 8])
     s.write(address_bytes)
     for byte in tri.to_bytes():
-        print(byte, end="")
         s.write(bytes([int(byte, 2)]))
 
 def read_triangle(address: int) -> Triangle:
@@ -55,52 +75,66 @@ def read_triangle(address: int) -> Triangle:
         data = int(s.read().hex(), 16)
         tri_bytes[35 - i] = bin(data)[2:].zfill(8)
 
-    print("".join(tri_bytes))
     return Triangle.from_bytes(tri_bytes)
 
-tris = load_mesh("test.obj", vec3(0.0, 0, 0))
-camera = Camera(14, 14, vec3(-8.2, 0, -0.94), 0.0, -4.5, 45)
-
+tris = load_mesh("ico.obj", vec3(0., 0, 0))
+camera = Camera(128, 128, vec3(-11, 0, -2.), 0.0, -4.5, 45)
 for i, tri in enumerate(tris):
+    print(i)
+    print(tri)
+
+# tris[0].normal = tris[1].normal
+for i in range(len(tris)):
     write_triangle(i, tris[i])
-# print()
-# 111111111111000110011001 111111111110111111111111000000000001000000000000111111111111000110011001000000000001000000000000000000000000000000000000111111111111000110011001111111111110111111111111111111111110111111111111111111111110111111111111000000000000000000000000000000000000000000000000
-# 000000000001000110011001 111111111110111111111111000000000001000000000000000000000001000110011001000000000001000000000000000000000000000000000000000000000001000110011001111111111110111111111111111111111110111111111111111111111110111111111111000000000000000000000000000000000000000000000000
-print(read_triangle(0))
-print(read_triangle(1))
-print(read_triangle(2))
 write_triangle(len(tris) - 1, Triangle.zero())
 
-# ray = Ray(origin = Vec3(-8.1999998, 0, -0.94), direction = Vec3(1.0053048, -0.120812304, 0.009252384))
-# # print(", ".join(ray.to_bytes()[9:18]))
-# res = trace_ray(ray)
-# print(res)
-# for i in range(len(tris)):
-#     print(read_triangle(i))
+light = glm.normalize(vec3(-1, 1, 1))
 def color(tri_index: int):
-    if tri_index == 0:
-        return vec3(255)
-    if tri_index == 1:
-        return vec3(255, 0, 0)
-    if tri_index == 2:
-        return vec3(0, 255, 0)
-    if tri_index == 3:
-        return vec3(0, 0, 255)
-    if tri_index == 4:
-        return vec3(255, 0, 255)
-    return None
-    
+    color = glm.dot(tris[tri_index].normal.to_glm(), light) * 255
+    color = max(0, color)
+    color = min(255, color)
+    return vec3(int(color))
+    # if tri_index == 0:
+    #     return vec3(255)
+    # if tri_index == 1:
+    #     return vec3(255, 0, 0)
+    # if tri_index == 2:
+    #     return vec3(0, 255, 0)
+    # if tri_index == 3:
+    #     return vec3(0, 0, 255)
+    # if tri_index == 4:
+    #     return vec3(255, 0, 255)
+    # return vec3(255)
+
+
+
 for i, direction in enumerate(camera.ray_directions):
     ray = Ray(origin=Vec3_from_glm(camera.position), direction=Vec3_from_glm(direction))
     res = trace_ray(ray)
-    print(i, ray, res[0], res[1])
     if res[1] != 65535:
+        # print(i, ray, res[0], res[1])
         camera.image[i] = color(res[1])
     else:
         camera.image[i] = vec3(0)
-
 camera.display_ppm()
+        
+# write_triangle(0, Triangle.zero())
+# for i, direction in enumerate(camera.ray_directions):
+#     if i - int(i / 128) * 128 < 48:
+#         ray = Ray(origin=Vec3_from_glm(camera.position), direction=Vec3_from_glm(direction))
+#         res = trace_ray(ray)
+#         if res[1] != 65535:
+#             # print(i, res[0], res[1])
+#             camera.image[i] = color(res[1])
+#         else:
+#             camera.image[i] = vec3(0)
+#         hit = res[1] != 65535
+
+#         if hits[i] != hit:
+#             print("fuckyou", i)
 s.close()
+
+
 
 
 
@@ -247,3 +281,56 @@ s.close()
 #             print("============== ERROR =============")
 #             time.sleep(1)
 #     print(index)
+
+
+"""
+
+=================
+=================
+debug_index=0
+hit_info 13.5400390625
+closest_hit_info 2047.999755859375
+flags 0b0
+=================
+debug_index=1
+hit_info 12.054931640625
+closest_hit_info 2047.999755859375
+flags 0b10
+=================
+debug_index=2
+hit_info 12.054931640625
+closest_hit_info 2047.999755859375
+flags 0b1010
+=================
+final=1
+hit_info 12.054931640625
+flags 0b1010
+=================
+=================
+"""
+
+"""
+=================
+=================
+debug_index=0
+hit_info 13.5400390625
+closest_hit_info 2047.999755859375
+flags 0b0
+=================
+debug_index=1
+hit_info 12.054931640625
+closest_hit_info 2047.999755859375
+flags 0b10
+=================
+debug_index=2
+hit_info 12.054931640625
+closest_hit_info 2047.999755859375
+flags 0b1010
+=================
+final=1
+hit_info 13.305419921875
+flags 0b1111
+=================
+=================
+11183 13.305419921875 0
+"""
