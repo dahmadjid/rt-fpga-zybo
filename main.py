@@ -78,7 +78,7 @@ def read_triangle(address: int) -> Triangle:
     return Triangle.from_bytes(tri_bytes)
 
 tris = load_mesh("ico.obj", vec3(0., 0, 0))
-camera = Camera(128, 128, vec3(-11, 0, -2.), 0.0, -4.5, 45)
+camera = Camera(512, 512, vec3(-11, 0, -2.), 0.0, -4.5, 45)
 for i, tri in enumerate(tris):
     print(i)
     print(tri)
