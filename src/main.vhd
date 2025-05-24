@@ -123,8 +123,9 @@ begin
     --     17 => "00000001", 
     --     18 => "00000000", 
     --     others => (others => '0'));
-    current_tri_index <= "0000000" & unsigned(ram_address);
     current_triangle <= ram_q_to_triangle(ram_q);
+    current_tri_index <= "0000000" & unsigned(ram_address);
+
     -- current_triangle <= ram_q_to_triangle("111111111110111111111111111111111110111111111111000000000001000000000000111111111110111111111111000000000001000000000000000000000000000000000000111111111110111111111111111111111110111111111111111111111110111111111111111111111110111111111111000000000000000000000000000000000000000000000000");
     -- current_ray.origin <= bytes_to_vec3(( 0 => "11111111", 1 => "01111100", 2 => "11001100", 3 => "00000000", 4 => "00000000", 5 => "00000000", 6 => "11111111", 7 => "11110000", 8 => "11110101"));
 --     -- current_ray.direction <= bytes_to_vec3(( 0 => "00000000", 1 => "00001111", 2 => "11110000", 3 => "11111111", 4 => "11111111", 5 => "10000110", 6 => "00000000", 7 => "00000001", 8 => "11111100"));
@@ -262,6 +263,10 @@ begin
                             receiving_data_state <= 0;
                             if uart_rx_buffer_index = uart_rx_buffer_len_expected then
                                 state <= PROCESSING;
+                                if uart_rx_buffer(0) = TRACE then
+                                    intersector_rst <= '1';
+                                    ram_wren <= '0';
+                                end if;
                                 processing_data_state <= 0;
                             else
                                 uart_rx_buffer_index <= uart_rx_buffer_index + 1;
@@ -304,43 +309,47 @@ begin
                             current_ray.origin <= bytes_to_vec3(uart_rx_buffer(9 downto 1));
                             current_ray.direction <= bytes_to_vec3(uart_rx_buffer(18 downto 10));
 
-                            if intersector_rst = '1' and done_in = '0' then
+                            if done_in = '0' then
                                 ram_address <= std_logic_vector(unsigned(ram_address) + 1);
                             end if;
 
                             ram_wren <= '0';
-                            intersector_rst <= '1';
-                            if intersector_rst = '1' and rst_out = '1' then
-                                if debug_index = 0 then
-                                    debug_index <= 1;
-                                    trace_tx_data(5) <= to_slv(hit_info.t(11 downto 4));
-                                    trace_tx_data(6) <= to_slv(hit_info.t(3 downto -4));
-                                    trace_tx_data(7) <= to_slv(hit_info.t(-5 downto -12));
-                                    trace_tx_data(8) <= to_slv(closest_hit_info.t(11 downto 4));
-                                    trace_tx_data(9) <= to_slv(closest_hit_info.t(3 downto -4));
-                                    trace_tx_data(10) <= to_slv(closest_hit_info.t(-5 downto -12));
-                                    trace_tx_data(11) <= (0 => hit, 1 => done_out, 2 => any_hit, 3 => closest_done_out, others => '0');
-                                elsif debug_index = 1 then
-                                    debug_index <= 2;
-                                    trace_tx_data(12) <= to_slv(hit_info.t(11 downto 4));
-                                    trace_tx_data(13) <= to_slv(hit_info.t(3 downto -4));
-                                    trace_tx_data(14) <= to_slv(hit_info.t(-5 downto -12));
-                                    trace_tx_data(15) <= to_slv(closest_hit_info.t(11 downto 4));
-                                    trace_tx_data(16) <= to_slv(closest_hit_info.t(3 downto -4));
-                                    trace_tx_data(17) <= to_slv(closest_hit_info.t(-5 downto -12));
-                                    trace_tx_data(18) <= (0 => hit, 1 => done_out, 2 => any_hit, 3 => closest_done_out, others => '0');
-                                elsif debug_index = 2 then
-                                    debug_index <= 3;
-                                    trace_tx_data(19) <= to_slv(hit_info.t(11 downto 4));
-                                    trace_tx_data(20) <= to_slv(hit_info.t(3 downto -4));
-                                    trace_tx_data(21) <= to_slv(hit_info.t(-5 downto -12));
-                                    trace_tx_data(22) <= to_slv(closest_hit_info.t(11 downto 4));
-                                    trace_tx_data(23) <= to_slv(closest_hit_info.t(3 downto -4));
-                                    trace_tx_data(24) <= to_slv(closest_hit_info.t(-5 downto -12));
-                                    trace_tx_data(25) <= (0 => hit, 1 => done_out, 2 => any_hit, 3 => closest_done_out, others => '0');
-                                end if;
+                            
+                            if debug_index = 0 then
+                                debug_index <= 1;
+                                trace_tx_data(5) <= std_logic_vector(ram_address(7 downto 0));
+                                trace_tx_data(6) <= std_logic_vector(current_tri_index(7 downto 0));
+                                trace_tx_data(7) <= ram_q(287 downto 281) & intersector_rst;
+                            elsif debug_index = 1 then
+                                debug_index <= 2;
+                                trace_tx_data(8) <= std_logic_vector(ram_address(7 downto 0));
+                                trace_tx_data(9) <= std_logic_vector(current_tri_index(7 downto 0));
+                                trace_tx_data(10) <= ram_q(287 downto 281) & intersector_rst;
+                            elsif debug_index = 2 then
+                                debug_index <= 3;
+                                trace_tx_data(11) <= std_logic_vector(ram_address(7 downto 0));
+                                trace_tx_data(12) <= std_logic_vector(current_tri_index(7 downto 0));
+                                trace_tx_data(13) <= ram_q(287 downto 281) & intersector_rst;
+                            elsif debug_index = 3 then
+                                debug_index <= 4;
+                                trace_tx_data(14) <= std_logic_vector(ram_address(7 downto 0));
+                                trace_tx_data(15) <= std_logic_vector(current_tri_index(7 downto 0));
+                                trace_tx_data(16) <= ram_q(287 downto 281) & intersector_rst;
                             end if;
                             
+                            if rst_out = '1' then
+                                if debug_index = 4 then
+                                    debug_index <= 5;
+                                    trace_tx_data(17) <= std_logic_vector(hit_info.tri_index(7 downto 0));
+                                elsif debug_index = 5 then
+                                    debug_index <= 6;
+                                    trace_tx_data(18) <= std_logic_vector(hit_info.tri_index(7 downto 0));
+                                elsif debug_index = 6 then
+                                    debug_index <= 7;
+                                    trace_tx_data(19) <= std_logic_vector(hit_info.tri_index(7 downto 0));
+                                end if;
+                            end if;
+
                             if intersector_rst = '1' and closest_done_out = '1' then
                                 state <= SENDING_DATA;
                                 trace_tx_data(0) <= to_slv(closest_hit_info.t(11 downto 4));

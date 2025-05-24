@@ -29,30 +29,45 @@ def trace_ray(_ray: Ray) -> tuple[FixedPoint, int]:
             __data__ += (bin(int(s.read().hex(), 16))[2:].zfill(8))
         return  fixed_t(__data__)
 
-    # for i in range(3):
     print("=================")
     print("=================")
     print("=================")
-    print("debug_index=0")
-    print("hit_info", read_fixed_t())
-    print("closest_hit_info", read_fixed_t())
-    print("flags", bin(int(s.read()[0])))
-    print("=================")
-    print("debug_index=1")
-    print("hit_info", read_fixed_t())
-    print("closest_hit_info", read_fixed_t())
-    print("flags", bin(int(s.read()[0])))
-    print("=================")
-    print("debug_index=2")
-    print("hit_info", read_fixed_t())
-    print("closest_hit_info", read_fixed_t())
-    print("flags", bin(int(s.read()[0])))
-    print("=================")
-    print("final=1")
-    print("hit_info", read_fixed_t())
-    print("flags", bin(int(s.read()[0])))
-    print("=================")
-    print("=================")
+
+    for i in range(4):
+        print("ram_address=", bin(int(s.read()[0])))
+        print("current_tri_index=", bin(int(s.read()[0])))
+        print("ram_q=", bin(int(s.read()[0])))
+        print("=================")
+
+    for i in range(3):
+        print("tri_index=", bin(int(s.read()[0])))
+
+    for i in range(20, 30):
+        print(bin(int(s.read()[0])))
+
+    # print("=================")
+    # print("=================")
+    # print("=================")
+    # print("debug_index=0")
+    # print("hit_info", read_fixed_t())
+    # print("closest_hit_info", read_fixed_t())
+    # print("flags", bin(int(s.read()[0])))
+    # print("=================")
+    # print("debug_index=1")
+    # print("hit_info", read_fixed_t())
+    # print("closest_hit_info", read_fixed_t())
+    # print("flags", bin(int(s.read()[0])))
+    # print("=================")
+    # print("debug_index=2")
+    # print("hit_info", read_fixed_t())
+    # print("closest_hit_info", read_fixed_t())
+    # print("flags", bin(int(s.read()[0])))
+    # print("=================")
+    # print("final=1")
+    # print("hit_info", read_fixed_t())
+    # print("flags", bin(int(s.read()[0])))
+    # print("=================")
+    # print("=================")
     
     return (fixed_t(t_data), int(index_data, 2))
 
@@ -78,7 +93,7 @@ def read_triangle(address: int) -> Triangle:
     return Triangle.from_bytes(tri_bytes)
 
 tris = load_mesh("ico.obj", vec3(0., 0, 0))
-camera = Camera(512, 512, vec3(-11, 0, -2.), 0.0, -4.5, 45)
+camera = Camera(128, 128, vec3(-11, 0, -2.), 0.0, -4.5, 45)
 for i, tri in enumerate(tris):
     print(i)
     print(tri)
@@ -88,6 +103,21 @@ for i in range(len(tris)):
     write_triangle(i, tris[i])
 write_triangle(len(tris) - 1, Triangle.zero())
 
+# tri = Triangle.zero().to_bytes()
+# tri[0] = "10000000"
+# write_triangle(0, Triangle.from_bytes(tri))
+# tri[0] = "11000000"
+# write_triangle(1, Triangle.from_bytes(tri))
+
+# tri[0] = "11100000"
+# write_triangle(2, Triangle.from_bytes(tri))
+
+# print("-")
+# print("-")
+# print("-")
+# print(read_triangle(0))
+# print(read_triangle(1))
+# print(read_triangle(2))
 light = glm.normalize(vec3(-1, 1, 1))
 def color(tri_index: int):
     color = glm.dot(tris[tri_index].normal.to_glm(), light) * 255
@@ -118,20 +148,6 @@ for i, direction in enumerate(camera.ray_directions):
         camera.image[i] = vec3(0)
 camera.display_ppm()
         
-# write_triangle(0, Triangle.zero())
-# for i, direction in enumerate(camera.ray_directions):
-#     if i - int(i / 128) * 128 < 48:
-#         ray = Ray(origin=Vec3_from_glm(camera.position), direction=Vec3_from_glm(direction))
-#         res = trace_ray(ray)
-#         if res[1] != 65535:
-#             # print(i, res[0], res[1])
-#             camera.image[i] = color(res[1])
-#         else:
-#             camera.image[i] = vec3(0)
-#         hit = res[1] != 65535
-
-#         if hits[i] != hit:
-#             print("fuckyou", i)
 s.close()
 
 

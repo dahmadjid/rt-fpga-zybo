@@ -59,7 +59,7 @@ package ray_tracer_pkg is
     ); 
 
     constant zero_hit_info: HitInfo_t := (
-        tri_index => (others => '0'),
+        tri_index => (others => '1'),
         t => (11 => '0', others => '1')
     );
 

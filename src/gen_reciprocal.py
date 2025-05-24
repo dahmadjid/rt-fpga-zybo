@@ -40,8 +40,8 @@ def div(a: FixedPoint):
         return x
 
 
-tests = [0.0 for _ in range((1 << ufixed_t(0).m) * 10)]
-step = 1.0 / float(1 << (ufixed_t(0).n + 1))
+tests = [0.0 for _ in range(4096 * 20)]
+step = 1.0 / 4096
 
 for i in range(len(tests)):
     tests[i] = step * (i + 1)
@@ -71,7 +71,7 @@ with open("data.csv", "w") as f:
 
         average_error += error
         f.write("{:.7f},{:.7f},{:.7f},{:.7f}\n".format(test, error, correct, float(res)))
-
+exit()
 if os.path.exists("lookup0_1.data"):
     os.remove("lookup0_1.data")
 

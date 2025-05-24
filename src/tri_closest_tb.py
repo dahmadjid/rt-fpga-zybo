@@ -15,17 +15,6 @@ from src.test_utils import HitInfo, Ray, Triangle, Vec3, Vec3_from_glm, assign_d
 @dataclass
 class Input:
     ray: Ray
-    triangle: Triangle
-    done_in: int
-    tri_index: int
-    @staticmethod 
-    def from_json(d: dict):
-        return Input(
-            Ray.from_json(d["ray"]), 
-            Triangle.from_json(d["triangle"]), 
-            d["done_in"],
-            0,
-        )
 
 @dataclass
 class Output:
@@ -35,16 +24,12 @@ class Output:
 
 @cocotb.test() # type: ignore
 async def test(dut: HierarchyObject):
-
     tris = load_mesh("../test2.obj", vec3())
     ray = Ray(origin=Vec3(x=-11.0, y=0.0, z=-2.0), direction=Vec3(x=0.9891266226768494, y=-0.0744289979338646, z=0.15701913833618164))
     test_data = [
         {
             "input": Input(
                 ray = ray,
-                triangle=tris[0],
-                tri_index=0,
-                done_in=0,
             ),
             "output": Output(
                 done_out=0,
@@ -58,9 +43,6 @@ async def test(dut: HierarchyObject):
         {
             "input": Input(
                 ray = ray,
-                triangle=tris[1],
-                tri_index=1,
-                done_in=1,
             ),
             "output": Output(
                 done_out=1,
@@ -74,33 +56,38 @@ async def test(dut: HierarchyObject):
     ]
 
     cocotb.start_soon(Clock(dut.clk, 20, "ns").start())
-    dut.clr.value = 0
     dut.rst.value = 0
     await RisingEdge(dut.clk)
     pipeline_delay = 0
-    for i, test in enumerate(test_data):
-        input_data = test["input"]
-        assign_dict_to_dut(dut, asdict(input_data))
-        dut.rst.value = 1
-        dut.clr.value = 1
-        await RisingEdge(dut.clk)
-        log.info(f"================== CYCLE {i} ({pipeline_delay=}) ==================")
-        pipeline_delay += 1
+    # for i, test in enumerate(test_data):
+    input_data = test_data[0]["input"]
+    assign_dict_to_dut(dut, asdict(input_data))
+    #     dut.rst.value = 1
+    #     await RisingEdge(dut.clk)
+    #     log.info(f"================== CYCLE {i} ({pipeline_delay=}) ==================")
+    #     pipeline_delay += 1
+    #     log.info(f"{str(dut.current_tri_index.value)=} {str(dut.ram_q.value)}")
+    #     log.info(f"{str(dut.hit_info.tri_index.value)=}")
+    dut.rst.value = 1
         
     output_index = 0
     i = 0
     while True:
         log.info(f"================== CYCLE {i} ({pipeline_delay=}) ==================")
+        log.info(f"{str(dut.intersector_rst.value)} {str(dut.current_tri_index.value)=} {str(dut.ram_q.value)[:10]}")
+        log.info(f"{str(dut.hit_info.tri_index.value)=}")
+
         if dut.rst_out.value != 1:
             pipeline_delay += 1
-        else:
-            output_data = test_data[output_index]["output"]
-            output_index += 1
-            print("hit=", dut.hit, "expected=", output_data.hit)
-            print("t=", fixed_t(str(dut.hit_info.t.value)), "expected=",output_data.hit_info.t)
-            print(f"{dut.done_out.value=}")
-            if output_index == 2:
-                break
+        elif dut.intr_done_out.value == 1:
+            break
+            # output_data = test_data[output_index]["output"]
+            # output_index += 1
+            # print("hit=", dut.hit, "expected=", output_data.hit)
+            # print("t=", fixed_t(str(dut.hit_info.t.value)), "expected=",output_data.hit_info.t)
+            # print(f"{dut.done_out.value=}")
+            # if output_index == 2:
+            #     break
             # if dut.hit == output_data.hit:
             #     if output_data.hit == 1:
             #         assert_dict_to_dut(dut, asdict(output_data), 0.015)
